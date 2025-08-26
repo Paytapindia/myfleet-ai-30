@@ -57,10 +57,11 @@ export default function AppSidebar() {
                   <SidebarMenuButton 
                     asChild 
                     isActive={isActive(item.url)}
-                    className="h-11 rounded-xl hover:bg-secondary/80 active:scale-95 transition-all duration-200 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground apple-shadow-sm"
+                    size="lg"
+                    className="rounded-xl hover:bg-secondary/80 active:scale-95 transition-all duration-200 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground apple-shadow-sm"
                   >
                     <NavLink to={item.url} end className={getNavCls} onClick={handleNavClick}>
-                      <item.icon className="mr-3 h-5 w-5" />
+                      <item.icon className="h-5 w-5" />
                       {state !== "collapsed" && <span className="font-medium">{labelMap[item.title]}</span>}
                     </NavLink>
                   </SidebarMenuButton>

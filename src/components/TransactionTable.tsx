@@ -49,6 +49,8 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   upi: 'UPI',
   cash: 'Cash',
   bank_transfer: 'Bank Transfer',
+  card: 'Card',
+  wallet: 'Wallet',
   other: 'Other'
 };
 

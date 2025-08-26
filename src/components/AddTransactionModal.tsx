@@ -26,7 +26,7 @@ const formSchema = z.object({
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   description: z.string().min(3, 'Description must be at least 3 characters'),
   date: z.string().min(1, 'Date is required'),
-  paymentMethod: z.enum(['upi', 'cash', 'bank_transfer', 'other']),
+  paymentMethod: z.enum(['upi', 'cash', 'bank_transfer', 'card', 'wallet', 'other']),
   location: z.string().optional(),
   reference: z.string().optional()
 });
@@ -37,6 +37,8 @@ const paymentMethodOptions = [
   { value: 'upi', label: 'UPI' },
   { value: 'cash', label: 'Cash' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'card', label: 'Card' },
+  { value: 'wallet', label: 'Wallet' },
   { value: 'other', label: 'Other' }
 ];
 

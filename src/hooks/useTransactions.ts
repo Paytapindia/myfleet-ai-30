@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import { Transaction, TransactionFilters, ProfitLossData } from '@/types/transaction';
-import { generateMockTransactions } from '@/data/mockTransactions';
 import { useVehicles } from '@/contexts/VehicleContext';
 import { useManualTransactions } from '@/contexts/ManualTransactionContext';
 
 export const useTransactions = (filters?: TransactionFilters) => {
   const { vehicles } = useVehicles();
-  const { manualTransactions } = useManualTransactions();
+  const { manualTransactions, isLoading } = useManualTransactions();
   
   const allTransactions = useMemo(() => {
-    // Only show manual transactions - remove mock data for production
+    // Use transactions from Supabase
     return [...manualTransactions].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -85,6 +84,6 @@ export const useTransactions = (filters?: TransactionFilters) => {
   return {
     transactions: filteredTransactions,
     profitLossData,
-    isLoading: false
+    isLoading
   };
 };

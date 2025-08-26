@@ -1,17 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Trip, CreateTripFormData, TripFilters, TripAnalytics, TripStatus } from '@/types/trip';
 import { useAuth } from './AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface TripContextType {
   trips: Trip[];
   analytics: TripAnalytics;
   isLoading: boolean;
   createTrip: (tripData: CreateTripFormData) => Promise<Trip>;
-  updateTripStatus: (tripId: string, status: TripStatus) => void;
-  updateTrip: (tripId: string, updates: Partial<Trip>) => void;
-  deleteTrip: (tripId: string) => void;
+  updateTripStatus: (tripId: string, status: TripStatus) => Promise<void>;
+  updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
+  deleteTrip: (tripId: string) => Promise<void>;
   getFilteredTrips: (filters: TripFilters) => Trip[];
   refreshAnalytics: () => void;
+  refreshTrips: () => Promise<void>;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -45,38 +48,72 @@ export const TripProvider: React.FC<TripProviderProps> = ({ children }) => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load trips from localStorage on mount
+  // Load trips from Supabase on mount
   useEffect(() => {
     if (user) {
-      loadTrips();
+      refreshTrips();
     }
   }, [user]);
-
-  // Save trips to localStorage whenever trips change
-  useEffect(() => {
-    if (user && trips.length > 0) {
-      localStorage.setItem(`trips_${user.id}`, JSON.stringify(trips));
-    }
-  }, [trips, user]);
 
   // Recalculate analytics whenever trips change
   useEffect(() => {
     calculateAnalytics();
   }, [trips]);
 
-  const loadTrips = () => {
+  const refreshTrips = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
     try {
-      const savedTrips = localStorage.getItem(`trips_${user?.id}`);
-      if (savedTrips) {
-        setTrips(JSON.parse(savedTrips));
-      } else {
-        // Generate some mock data for demonstration
-        generateMockTrips();
-      }
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Map Supabase data to Trip type
+      const tripsData: Trip[] = data?.map(t => ({
+        id: t.id,
+        tripNumber: t.id.slice(0, 8).toUpperCase(), // Generate trip number from ID
+        status: t.status as TripStatus,
+        type: 'local', // Default type, update schema if needed
+        pickup: { address: t.pickup_location || '' },
+        destination: { address: t.destination || '' },
+        vehicleId: t.vehicle_id,
+        vehicleNumber: '', // Will be populated from vehicles table
+        driverId: t.driver_id || '',
+        driverName: '', // Will be populated from drivers table
+        passenger: {
+          id: 'p1',
+          name: t.customer_name || '',
+          phone: t.customer_phone || ''
+        },
+        scheduledStartTime: t.scheduled_at || new Date().toISOString(),
+        actualStartTime: t.started_at,
+        actualEndTime: t.completed_at,
+        distance: Number(t.distance_km) || 0,
+        duration: 0, // Calculate if needed
+        earnings: {
+          totalFare: Number(t.total_fare) || 0,
+          baseFare: Number(t.base_fare) || 0,
+          extraCharges: Number(t.waiting_charges) || 0,
+          tolls: Number(t.toll_charges) || 0,
+          fuel: 0, // Calculate if needed
+          driverPay: Number(t.driver_earnings) || 0,
+          netProfit: Number(t.commission) || 0
+        },
+        notes: t.notes,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        userId: t.user_id
+      })) || [];
+
+      setTrips(tripsData);
     } catch (error) {
       console.error('Error loading trips:', error);
-      generateMockTrips();
+      toast.error('Failed to load trips');
     } finally {
       setIsLoading(false);
     }
@@ -230,59 +267,156 @@ export const TripProvider: React.FC<TripProviderProps> = ({ children }) => {
   };
 
   const createTrip = async (tripData: CreateTripFormData): Promise<Trip> => {
-    const newTrip: Trip = {
-      id: Date.now().toString(),
-      tripNumber: `TRP${(trips.length + 1).toString().padStart(3, '0')}`,
-      status: 'pending',
-      type: tripData.type,
-      pickup: tripData.pickup,
-      destination: tripData.destination,
-      vehicleId: '',
-      vehicleNumber: '',
-      driverId: '',
-      driverName: '',
-      passenger: tripData.passenger,
-      scheduledStartTime: tripData.scheduledStartTime,
-      distance: 0,
-      duration: 0,
-      earnings: {
-        totalFare: tripData.baseFare,
-        baseFare: tripData.baseFare,
-        extraCharges: 0,
-        tolls: 0,
-        fuel: 0,
-        driverPay: 0,
-        netProfit: 0
-      },
-      corporateAccountId: tripData.corporateAccountId,
-      notes: tripData.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userId: user?.id || ''
-    };
+    if (!user) throw new Error('User not authenticated');
 
-    setTrips(prev => [newTrip, ...prev]);
-    return newTrip;
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .insert({
+          user_id: user.id,
+          vehicle_id: '', // Will need to be assigned
+          pickup_location: tripData.pickup.address,
+          destination: tripData.destination.address,
+          customer_name: tripData.passenger.name,
+          customer_phone: tripData.passenger.phone,
+          base_fare: tripData.baseFare,
+          scheduled_at: tripData.scheduledStartTime,
+          notes: tripData.notes,
+          status: 'scheduled'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newTrip: Trip = {
+        id: data.id,
+        tripNumber: data.id.slice(0, 8).toUpperCase(),
+        status: data.status as TripStatus,
+        type: tripData.type,
+        pickup: tripData.pickup,
+        destination: tripData.destination,
+        vehicleId: data.vehicle_id,
+        vehicleNumber: '',
+        driverId: '',
+        driverName: '',
+        passenger: tripData.passenger,
+        scheduledStartTime: data.scheduled_at,
+        distance: 0,
+        duration: 0,
+        earnings: {
+          totalFare: Number(data.base_fare),
+          baseFare: Number(data.base_fare),
+          extraCharges: 0,
+          tolls: 0,
+          fuel: 0,
+          driverPay: 0,
+          netProfit: 0
+        },
+        notes: data.notes,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        userId: data.user_id
+      };
+
+      setTrips(prev => [newTrip, ...prev]);
+      toast.success('Trip created successfully');
+      return newTrip;
+    } catch (error) {
+      console.error('Error creating trip:', error);
+      toast.error('Failed to create trip');
+      throw error;
+    }
   };
 
-  const updateTripStatus = (tripId: string, status: TripStatus) => {
-    setTrips(prev => prev.map(trip => 
-      trip.id === tripId 
-        ? { ...trip, status, updatedAt: new Date().toISOString() }
-        : trip
-    ));
+  const updateTripStatus = async (tripId: string, status: TripStatus) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .update({ 
+          status: status as any,
+          ...(status === 'active' && { started_at: new Date().toISOString() }),
+          ...(status === 'completed' && { completed_at: new Date().toISOString() })
+        })
+        .eq('id', tripId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTrips(prev => prev.map(trip => 
+        trip.id === tripId 
+          ? { 
+              ...trip, 
+              status, 
+              updatedAt: new Date().toISOString(),
+              ...(status === 'active' && { actualStartTime: new Date().toISOString() }),
+              ...(status === 'completed' && { actualEndTime: new Date().toISOString() })
+            }
+          : trip
+      ));
+      
+      toast.success('Trip status updated successfully');
+    } catch (error) {
+      console.error('Error updating trip status:', error);
+      toast.error('Failed to update trip status');
+      throw error;
+    }
   };
 
-  const updateTrip = (tripId: string, updates: Partial<Trip>) => {
-    setTrips(prev => prev.map(trip => 
-      trip.id === tripId 
-        ? { ...trip, ...updates, updatedAt: new Date().toISOString() }
-        : trip
-    ));
+  const updateTrip = async (tripId: string, updates: Partial<Trip>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .update({
+          pickup_location: updates.pickup?.address,
+          destination: updates.destination?.address,
+          customer_name: updates.passenger?.name,
+          customer_phone: updates.passenger?.phone,
+          base_fare: updates.earnings?.baseFare,
+          notes: updates.notes
+        })
+        .eq('id', tripId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTrips(prev => prev.map(trip => 
+        trip.id === tripId 
+          ? { ...trip, ...updates, updatedAt: new Date().toISOString() }
+          : trip
+      ));
+      
+      toast.success('Trip updated successfully');
+    } catch (error) {
+      console.error('Error updating trip:', error);
+      toast.error('Failed to update trip');
+      throw error;
+    }
   };
 
-  const deleteTrip = (tripId: string) => {
-    setTrips(prev => prev.filter(trip => trip.id !== tripId));
+  const deleteTrip = async (tripId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTrips(prev => prev.filter(trip => trip.id !== tripId));
+      toast.success('Trip deleted successfully');
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      toast.error('Failed to delete trip');
+      throw error;
+    }
   };
 
   const getFilteredTrips = (filters: TripFilters): Trip[] => {
@@ -319,7 +453,8 @@ export const TripProvider: React.FC<TripProviderProps> = ({ children }) => {
         updateTrip,
         deleteTrip,
         getFilteredTrips,
-        refreshAnalytics
+        refreshAnalytics,
+        refreshTrips
       }}
     >
       {children}

@@ -12,7 +12,7 @@ export type TransactionType =
   | 'manual_income'
   | 'manual_expense';
 
-export type PaymentMethod = 'upi' | 'cash' | 'bank_transfer' | 'other';
+export type PaymentMethod = 'upi' | 'cash' | 'bank_transfer' | 'card' | 'wallet' | 'other';
 
 export interface Transaction {
   id: string;

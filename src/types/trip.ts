@@ -1,4 +1,4 @@
-export type TripStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+export type TripStatus = 'pending' | 'active' | 'completed' | 'cancelled' | 'scheduled' | 'in_progress';
 export type TripType = 'local' | 'intercity' | 'corporate' | 'airport';
 
 export interface Location {

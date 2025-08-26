@@ -633,6 +633,7 @@ export type Database = {
           status: Database["public"]["Enums"]["vehicle_status"]
           updated_at: string
           user_id: string
+          wallet_balance: number | null
           year: number | null
         }
         Insert: {
@@ -657,6 +658,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["vehicle_status"]
           updated_at?: string
           user_id: string
+          wallet_balance?: number | null
           year?: number | null
         }
         Update: {
@@ -681,9 +683,67 @@ export type Database = {
           status?: Database["public"]["Enums"]["vehicle_status"]
           updated_at?: string
           user_id?: string
+          wallet_balance?: number | null
           year?: number | null
         }
         Relationships: []
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          description: string
+          id: string
+          reference_number: string | null
+          trip_id: string | null
+          type: string
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after?: number
+          created_at?: string
+          description: string
+          id?: string
+          reference_number?: string | null
+          trip_id?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          description?: string
+          id?: string
+          reference_number?: string | null
+          trip_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

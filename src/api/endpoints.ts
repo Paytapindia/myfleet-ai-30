@@ -50,4 +50,14 @@ export const endpoints = {
   files: {
     upload: "/files",
   },
+  paytap: {
+    account: "/paytap/account",
+    balance: "/paytap/balance",
+    addMoney: "/paytap/add-money",
+    transactions: "/paytap/transactions",
+    cards: "/paytap/cards",
+    orderCard: "/paytap/cards/order",
+    assignCard: (vehicleId: string) => `/paytap/cards/assign/${vehicleId}`,
+    transferMoney: "/paytap/transfer",
+  },
 };

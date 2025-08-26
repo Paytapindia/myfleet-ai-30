@@ -55,7 +55,10 @@ const FleetOverview = () => {
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm hover:shadow-md transition-all duration-200">
+      <Card 
+        className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+        onClick={() => navigate('/paytap-dashboard')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 lg:p-6 lg:pb-2">
           <CardTitle className="text-xs lg:text-sm font-medium">{t('fleet.accountBalance')}</CardTitle>
           <DollarSign className="h-3 w-3 lg:h-4 lg:w-4 text-status-active" />

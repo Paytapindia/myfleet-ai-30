@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Truck, ArrowLeft } from 'lucide-react';
+import { Truck, ArrowLeft, Car } from 'lucide-react';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -20,7 +20,8 @@ const AuthPage = () => {
     email: '', 
     password: '', 
     fullName: '', 
-    phone: '' 
+    phone: '',
+    vehicleNumber: ''
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -53,6 +54,7 @@ const AuthPage = () => {
     const { error } = await signup(signupData.email, signupData.password, {
       fullName: signupData.fullName,
       phone: signupData.phone,
+      vehicleNumber: signupData.vehicleNumber,
     });
     
     if (error) {
@@ -164,6 +166,20 @@ const AuthPage = () => {
                       placeholder="+91 9876543210"
                       value={signupData.phone}
                       onChange={(e) => setSignupData(prev => ({ ...prev, phone: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-vehicle" className="flex items-center">
+                      <Car className="h-4 w-4 mr-2" />
+                      Vehicle Number
+                    </Label>
+                    <Input
+                      id="signup-vehicle"
+                      type="text"
+                      placeholder="KA 01 AB 1234"
+                      value={signupData.vehicleNumber}
+                      onChange={(e) => setSignupData(prev => ({ ...prev, vehicleNumber: e.target.value.toUpperCase() }))}
                       required
                     />
                   </div>

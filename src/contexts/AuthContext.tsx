@@ -20,7 +20,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string, userData: { fullName: string; phone: string }) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, userData: { fullName: string; phone: string; vehicleNumber: string }) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   completeOnboarding: (profileData: {
     fullName: string;
@@ -150,7 +150,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const signup = async (email: string, password: string, userData: { fullName: string; phone: string }) => {
+  const signup = async (email: string, password: string, userData: { fullName: string; phone: string; vehicleNumber: string }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -162,6 +162,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           data: {
             full_name: userData.fullName,
             phone: userData.phone,
+            vehicle_number: userData.vehicleNumber,
           }
         }
       });

@@ -62,17 +62,6 @@ const AppRoutes = () => {
     );
   }
 
-  // Logged in but not onboarded
-  if (!user.isOnboarded) {
-    console.log('User not onboarded - showing onboarding');
-    return (
-    <Routes>
-      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-      <Route path="/terms-conditions" element={<TermsConditionsPage />} />
-      <Route path="*" element={<OnboardingPage />} />
-    </Routes>
-    );
-  }
 
   // Subscription gate for onboarded users without active plan
   if (!isActiveSub) {

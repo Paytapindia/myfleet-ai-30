@@ -103,7 +103,7 @@ export const DriverProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: driverData.name,
         phone: driverData.phone ?? null,
         license_number: driverData.licenseNumber,
-        date_of_birth: driverData.dateOfBirth,
+        date_of_birth: driverData.dateOfBirth || null,
         status: 'active',
       })
       .select()
@@ -124,7 +124,7 @@ export const DriverProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.licenseNumber !== undefined) payload.license_number = updates.licenseNumber;
-    if (updates.dateOfBirth !== undefined) payload.date_of_birth = updates.dateOfBirth;
+    if (updates.dateOfBirth !== undefined) payload.date_of_birth = updates.dateOfBirth || null;
     if (updates.address !== undefined) payload.address = updates.address;
 
     const { error } = await supabase.from('drivers').update(payload).eq('id', driverId);

@@ -1,4 +1,15 @@
-import { Home, BarChart3, Users, Car, Truck, CreditCard, AlertCircle, ChevronDown, FolderOpen } from "lucide-react";
+import { 
+  Home, 
+  BarChart3, 
+  Users, 
+  Car, 
+  Truck, 
+  CreditCard, 
+  AlertCircle, 
+  ChevronDown, 
+  FolderOpen, 
+  Settings 
+} from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -11,9 +22,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -35,8 +48,6 @@ export default function AppSidebar() {
   const [isManagerOpen, setIsManagerOpen] = useState(true);
   
   const isActive = (path: string) => location.pathname === path;
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-muted text-primary font-medium" : "hover:bg-muted/50";
   const handleNavClick = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -58,82 +69,150 @@ export default function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/50 glass-effect">
-      <SidebarContent className="py-6">
-        {/* Main Navigation Items */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider px-4 mb-4">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1 px-3">
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive(item.url)}
-                    size="lg"
-                    className="rounded-xl hover:bg-secondary/80 active:scale-95 transition-all duration-200 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground apple-shadow-sm"
-                  >
-                    <NavLink to={item.url} end className={getNavCls} onClick={handleNavClick}>
-                      <item.icon className="h-5 w-5" />
-                      {state !== "collapsed" && <span className="font-medium">{mainLabelMap[item.title]}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Manager Section */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1 px-3">
-              <SidebarMenuItem>
-                <Collapsible 
-                  open={isManagerOpen || isAnyManagerItemActive} 
-                  onOpenChange={setIsManagerOpen}
-                  className="w-full"
-                >
-                  <CollapsibleTrigger asChild>
+    <Sidebar 
+      collapsible="icon" 
+      className="border-r border-sidebar-border bg-sidebar/95 backdrop-blur-sm"
+    >
+      <SidebarContent className="flex flex-col h-full">
+        {/* Main Navigation */}
+        <div className="flex-1 py-4">
+          <SidebarGroup className="px-2">
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {mainItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive(item.url)}
                       size="lg"
-                      className="rounded-xl hover:bg-secondary/80 active:scale-95 transition-all duration-200 w-full justify-between"
+                      className={`
+                        group relative rounded-xl px-3 py-2.5 transition-all duration-200 
+                        hover:bg-sidebar-accent hover:shadow-sm
+                        data-[active=true]:bg-primary data-[active=true]:text-primary-foreground 
+                        data-[active=true]:shadow-lg data-[active=true]:scale-[0.98]
+                        font-medium
+                      `}
                     >
-                      <div className="flex items-center">
-                        <FolderOpen className="h-5 w-5" />
-                        {state !== "collapsed" && <span className="font-medium">MANAGER</span>}
-                      </div>
-                      {state !== "collapsed" && (
-                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isManagerOpen || isAnyManagerItemActive ? 'rotate-180' : ''}`} />
-                      )}
+                      <NavLink to={item.url} end onClick={handleNavClick}>
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        {state !== "collapsed" && (
+                          <span className="ml-3 text-sm font-medium truncate">
+                            {mainLabelMap[item.title]}
+                          </span>
+                        )}
+                      </NavLink>
                     </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-1 mt-1">
-                    <div className="pl-6 space-y-1">
-                      {managerItems.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton 
-                            asChild 
-                            isActive={isActive(item.url)}
-                            size="lg"
-                            className="rounded-xl hover:bg-secondary/80 active:scale-95 transition-all duration-200 data-[active=true]:bg-primary data-[active=true]:text-primary-foreground apple-shadow-sm"
-                          >
-                            <NavLink to={item.url} end className={getNavCls} onClick={handleNavClick}>
-                              <item.icon className="h-4 w-4" />
-                              {state !== "collapsed" && <span className="font-medium text-sm">{managerLabelMap[item.title]}</span>}
-                            </NavLink>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Divider */}
+          <div className="px-4 my-4">
+            <Separator className="bg-sidebar-border" />
+          </div>
+
+          {/* Manager Section */}
+          <SidebarGroup className="px-2">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <Collapsible 
+                    open={isManagerOpen || isAnyManagerItemActive} 
+                    onOpenChange={setIsManagerOpen}
+                    className="w-full"
+                  >
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton 
+                        size="lg"
+                        className={`
+                          group relative rounded-xl px-3 py-2.5 w-full justify-between
+                          transition-all duration-200 hover:bg-sidebar-accent hover:shadow-sm
+                          font-medium text-sidebar-foreground/80
+                        `}
+                      >
+                        <div className="flex items-center">
+                          <FolderOpen className="h-5 w-5 shrink-0" />
+                          {state !== "collapsed" && (
+                            <span className="ml-3 text-sm font-semibold tracking-wide">
+                              MANAGER
+                            </span>
+                          )}
+                        </div>
+                        {state !== "collapsed" && (
+                          <ChevronDown 
+                            className={`
+                              h-4 w-4 transition-all duration-300 text-sidebar-foreground/60
+                              ${(isManagerOpen || isAnyManagerItemActive) ? 'rotate-180' : 'rotate-0'}
+                            `} 
+                          />
+                        )}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                      <div className="mt-1 ml-2 space-y-1 border-l border-sidebar-border/50 pl-6">
+                        {managerItems.map((item) => (
+                          <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton 
+                              asChild 
+                              isActive={isActive(item.url)}
+                              size="default"
+                              className={`
+                                group relative rounded-lg px-3 py-2 transition-all duration-200
+                                hover:bg-sidebar-accent hover:shadow-sm
+                                data-[active=true]:bg-primary/10 data-[active=true]:text-primary 
+                                data-[active=true]:border-l-2 data-[active=true]:border-primary
+                                data-[active=true]:shadow-sm font-medium
+                              `}
+                            >
+                              <NavLink to={item.url} end onClick={handleNavClick}>
+                                <item.icon className="h-4 w-4 shrink-0" />
+                                {state !== "collapsed" && (
+                                  <span className="ml-2.5 text-sm truncate">
+                                    {managerLabelMap[item.title]}
+                                  </span>
+                                )}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </div>
+
+        {/* Footer - Settings */}
+        <SidebarFooter className="border-t border-sidebar-border bg-sidebar/50 p-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton 
+                asChild 
+                isActive={isActive('/settings')}
+                size="lg"
+                className={`
+                  group relative rounded-xl px-3 py-2.5 transition-all duration-200 
+                  hover:bg-sidebar-accent hover:shadow-sm
+                  data-[active=true]:bg-primary data-[active=true]:text-primary-foreground 
+                  data-[active=true]:shadow-lg font-medium
+                `}
+              >
+                <NavLink to="/settings" onClick={handleNavClick}>
+                  <Settings className="h-5 w-5 shrink-0" />
+                  {state !== "collapsed" && (
+                    <span className="ml-3 text-sm font-medium truncate">
+                      {t("nav.settings", "Settings")}
+                    </span>
+                  )}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
       </SidebarContent>
     </Sidebar>
   );

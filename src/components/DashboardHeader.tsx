@@ -1,4 +1,4 @@
-import { MessageCircle, User, LogOut, Settings, LifeBuoy } from "lucide-react";
+import { MessageCircle, User, LogOut, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,10 +63,6 @@ const DashboardHeader = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                {t('nav.settings')}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/support')}>
                 <LifeBuoy className="mr-2 h-4 w-4" />
                 {t('nav.support')}

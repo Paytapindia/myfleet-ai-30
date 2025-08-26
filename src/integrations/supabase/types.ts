@@ -7,240 +7,23 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.12 (cd3cf9e)"
+    PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
-      drivers: {
-        Row: {
-          assigned_vehicles: string[] | null
-          created_at: string
-          document_url: string | null
-          full_name: string
-          id: string
-          license_number: string
-          owner_id: string
-          profile_id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          assigned_vehicles?: string[] | null
-          created_at?: string
-          document_url?: string | null
-          full_name?: string
-          id?: string
-          license_number: string
-          owner_id: string
-          profile_id: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          assigned_vehicles?: string[] | null
-          created_at?: string
-          document_url?: string | null
-          full_name?: string
-          id?: string
-          license_number?: string
-          owner_id?: string
-          profile_id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "drivers_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          company_name: string | null
-          created_at: string
-          full_name: string
-          id: string
-          is_onboarded: boolean | null
-          pan_number: string | null
-          phone: string
-          role: Database["public"]["Enums"]["user_role"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          company_name?: string | null
-          created_at?: string
-          full_name: string
-          id?: string
-          is_onboarded?: boolean | null
-          pan_number?: string | null
-          phone: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          company_name?: string | null
-          created_at?: string
-          full_name?: string
-          id?: string
-          is_onboarded?: boolean | null
-          pan_number?: string | null
-          phone?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      subscribers: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          status: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          subscribed: boolean
-          subscription_end: string | null
-          subscription_tier: string | null
-          trial_end: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          status?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          trial_end?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          status?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          trial_end?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      transactions: {
-        Row: {
-          amount: number
-          api_source: string | null
-          category: string
-          created_at: string
-          date: string
-          description: string
-          id: string
-          is_manual: boolean | null
-          location: string | null
-          payment_method: string | null
-          reference: string | null
-          type: string
-          updated_at: string
-          user_id: string
-          vehicle_id: string
-          vehicle_number: string
-        }
-        Insert: {
-          amount: number
-          api_source?: string | null
-          category: string
-          created_at?: string
-          date?: string
-          description: string
-          id?: string
-          is_manual?: boolean | null
-          location?: string | null
-          payment_method?: string | null
-          reference?: string | null
-          type: string
-          updated_at?: string
-          user_id: string
-          vehicle_id: string
-          vehicle_number: string
-        }
-        Update: {
-          amount?: number
-          api_source?: string | null
-          category?: string
-          created_at?: string
-          date?: string
-          description?: string
-          id?: string
-          is_manual?: boolean | null
-          location?: string | null
-          payment_method?: string | null
-          reference?: string | null
-          type?: string
-          updated_at?: string
-          user_id?: string
-          vehicle_id?: string
-          vehicle_number?: string
-        }
-        Relationships: []
-      }
-      vehicles: {
-        Row: {
-          created_at: string
-          id: string
-          model: string | null
-          number: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          model?: string | null
-          number: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          model?: string | null
-          number?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      get_user_role: {
-        Args: { user_uuid: string }
-        Returns: Database["public"]["Enums"]["user_role"]
-      }
+      [_ in never]: never
     }
     Enums: {
-      user_role: "owner" | "driver"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -367,8 +150,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      user_role: ["owner", "driver"],
-    },
+    Enums: {},
   },
 } as const

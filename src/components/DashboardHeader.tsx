@@ -1,4 +1,4 @@
-import { MessageCircle, User, LogOut, Settings } from "lucide-react";
+import { MessageCircle, User, LogOut, Settings, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,16 +60,17 @@ const DashboardHeader = () => {
                       <p className="text-xs text-muted-foreground">{user.companyName}</p>
                     )}
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => navigate('/settings')}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                {t('nav.settings')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/support')}>
+                <LifeBuoy className="mr-2 h-4 w-4" />
+                {t('nav.support')}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />

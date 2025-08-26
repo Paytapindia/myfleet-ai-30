@@ -1,4 +1,4 @@
-import { Home, BarChart3, Settings, LifeBuoy, Users, Car, Truck, CreditCard, AlertCircle } from "lucide-react";
+import { Home, BarChart3, Users, Car, Truck, CreditCard, AlertCircle } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -21,8 +21,6 @@ const items = [
   { title: "Challans Dashboard", url: "/challans-dashboard", icon: AlertCircle },
   { title: "Vehicle Operators", url: "/manage-operators", icon: Users },
   { title: "Trip Manager", url: "/trip-manager", icon: Car },
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Support", url: "/support", icon: LifeBuoy },
 ];
 
 export default function AppSidebar() {
@@ -43,8 +41,6 @@ export default function AppSidebar() {
     "Challans Dashboard": "Challans Dashboard",
     "Vehicle Operators": t("nav.manageOperators"),
     "Trip Manager": t("nav.tripManager"),
-    Settings: t("nav.settings"),
-    Support: t("nav.support"),
   };
 
   return (

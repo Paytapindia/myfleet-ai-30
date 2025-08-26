@@ -244,12 +244,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      
+      // Clean up auth state from localStorage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Sign out from Supabase with global scope
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Force page reload to ensure clean state
+      window.location.href = '/';
+    } catch (error) {
       console.error('Error signing out:', error);
+      // Even if signOut fails, clear local state and redirect
+      setUser(null);
+      setSession(null);
+      window.location.href = '/';
     }
-    setUser(null);
-    setSession(null);
   };
 
   const startTrial = async (): Promise<void> => {

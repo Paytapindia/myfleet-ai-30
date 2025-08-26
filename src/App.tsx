@@ -10,7 +10,7 @@ import { ManualTransactionProvider } from "@/contexts/ManualTransactionContext";
 import { TripProvider } from "@/contexts/TripContext";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
-import LoginPage from "./pages/LoginPage";
+import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfitLossPage from "./pages/ProfitLossPage";
@@ -49,7 +49,8 @@ const AppRoutes = () => {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/login" element={<AuthPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />
         <Route path="*" element={<LandingPage />} />

@@ -85,7 +85,7 @@ const LandingPage = () => {
 
             {/* Login Button */}
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/auth')}
               variant="outline"
               className="text-sm lg:text-base px-4 lg:px-6"
             >
@@ -115,7 +115,7 @@ const LandingPage = () => {
         {/* CTA Button */}
         <div className="mb-12">
           <Button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/auth')}
             size="lg"
             className="text-lg px-8 py-6 h-auto font-semibold shadow-lg"
           >

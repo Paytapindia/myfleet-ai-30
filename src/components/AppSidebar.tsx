@@ -1,4 +1,4 @@
-import { Home, BarChart3, Settings, LifeBuoy, Users, Car, Truck, CreditCard } from "lucide-react";
+import { Home, BarChart3, Settings, LifeBuoy, Users, Car, Truck, CreditCard, AlertCircle } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,6 +18,7 @@ const items = [
   { title: "Profit & Loss", url: "/profit-loss", icon: BarChart3 },
   { title: "Vehicle Manager", url: "/vehicle-manager", icon: Truck },
   { title: "PayTap Dashboard", url: "/paytap-dashboard", icon: CreditCard },
+  { title: "Challans Dashboard", url: "/challans-dashboard", icon: AlertCircle },
   { title: "Vehicle Operators", url: "/manage-operators", icon: Users },
   { title: "Trip Manager", url: "/trip-manager", icon: Car },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -39,6 +40,7 @@ export default function AppSidebar() {
     "Profit & Loss": t("nav.profitLoss"),
     "Vehicle Manager": t("nav.vehicleManager"),
     "PayTap Dashboard": "PayTap Dashboard",
+    "Challans Dashboard": "Challans Dashboard",
     "Vehicle Operators": t("nav.manageOperators"),
     "Trip Manager": t("nav.tripManager"),
     Settings: t("nav.settings"),

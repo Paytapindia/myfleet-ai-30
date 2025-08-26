@@ -39,6 +39,10 @@ export const endpoints = {
   },
   challans: {
     list: (vehicleId: string) => `/vehicles/${vehicleId}/challans`,
+    all: "/challans",
+    pay: (challanId: string) => `/challans/${challanId}/pay`,
+    details: (challanId: string) => `/challans/${challanId}`,
+    bulkPay: "/challans/bulk-pay",
   },
   services: {
     list: (vehicleId: string) => `/vehicles/${vehicleId}/services`,

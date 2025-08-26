@@ -24,6 +24,7 @@ import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import ManageOperatorsPage from "./pages/ManageOperatorsPage";
 import VehicleManagerPage from "./pages/VehicleManagerPage";
 import PayTapDashboardPage from "./pages/PayTapDashboardPage";
+import ChallansDashboardPage from "./pages/ChallansDashboardPage";
 import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
@@ -88,7 +89,8 @@ const AppRoutes = () => {
         <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
         <Route path="/trip-manager" element={<TripManagerPage />} />
         <Route path="/manage-operators" element={<ManageOperatorsPage />} />
-        <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
+          <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
+          <Route path="/challans-dashboard" element={<ChallansDashboardPage />} />
         <Route path="/support" element={<SupportPage />} />
       </Route>
       <Route path="/login" element={<Index />} /> {/* Redirect authenticated users to dashboard */}

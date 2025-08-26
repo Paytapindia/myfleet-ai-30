@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Vehicle, AddVehicleFormData } from '@/types/vehicle';
 import { useAuth } from './AuthContext';
-import { fetchVehicleDetails } from '@/services/vehicleApi';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VehicleContextType {
   vehicles: Vehicle[];
   addVehicle: (vehicleData: AddVehicleFormData) => Promise<void>;
-  removeVehicle: (vehicleId: string) => void;
-  updateVehicle: (vehicleId: string, updates: Partial<Vehicle>) => void;
-  assignDriverToVehicle: (vehicleId: string, driverId: string) => void;
-  unassignDriverFromVehicle: (vehicleId: string, driverId: string) => void;
+  removeVehicle: (vehicleId: string) => Promise<void>;
+  updateVehicle: (vehicleId: string, updates: Partial<Vehicle>) => Promise<void>;
+  assignDriverToVehicle: (vehicleId: string, driverId: string) => Promise<void>;
+  unassignDriverFromVehicle: (vehicleId: string, driverId: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -28,87 +28,157 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load vehicles from localStorage when user changes
-  useEffect(() => {
-    if (user) {
-      const storedVehicles = localStorage.getItem(`vehicles_${user.id}`);
-      if (storedVehicles) {
-        setVehicles(JSON.parse(storedVehicles));
-      }
-    } else {
-      setVehicles([]);
-    }
-    setIsLoading(false);
-  }, [user]);
-
-  // Save vehicles to localStorage whenever vehicles change
-  useEffect(() => {
-    if (user && vehicles.length > 0) {
-      localStorage.setItem(`vehicles_${user.id}`, JSON.stringify(vehicles));
-    }
-  }, [vehicles, user]);
-
-  const addVehicle = async (vehicleData: AddVehicleFormData) => {
-    if (!user) return;
-
-    // Fetch vehicle details from API
-    const apiResponse = await fetchVehicleDetails(vehicleData.number);
-    
-    if (!apiResponse.success) {
-      throw new Error(apiResponse.error || 'Failed to fetch vehicle details');
-    }
-
-    const newVehicle: Vehicle = {
-      id: Date.now().toString(),
-      number: vehicleData.number,
-      model: apiResponse.model,
-      payTapBalance: 0,
-      fastTagLinked: false,
-      driver: null,
-      lastService: "Not scheduled",
-      gpsLinked: false,
-      challans: 0,
+  const mapVehicle = useCallback((row: any, driverName?: string): Vehicle => {
+    return {
+      id: row.id,
+      number: row.number,
+      model: row.model ?? 'Not specified',
+      payTapBalance: Number(row.pay_tap_balance ?? 0),
+      fastTagLinked: Boolean(row.fasttag_linked ?? false),
+      driver: driverName ? { id: row.driver_id ?? '', name: driverName } : null,
+      lastService: row.last_service_date ?? 'Not scheduled',
+      gpsLinked: Boolean(row.gps_linked ?? false),
+      challans: Number(row.challans_count ?? 0),
       documents: {
         pollution: { status: 'missing' },
         registration: { status: 'missing' },
         insurance: { status: 'missing' },
-        license: { status: 'missing' }
+        license: { status: 'missing' },
       },
       financialData: [],
-      userId: user.id
-    };
+      userId: row.user_id,
+    } as Vehicle;
+  }, []);
 
-    setVehicles(prev => [...prev, newVehicle]);
+  const refreshVehicles = useCallback(async () => {
+    if (!user) {
+      setVehicles([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+
+    const { data: vRows, error: vErr } = await supabase
+      .from('vehicles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (vErr) {
+      console.error('Failed to load vehicles:', vErr);
+      setVehicles([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const vehicleIds = (vRows ?? []).map(r => r.id);
+    let assignmentsMap = new Map<string, { driver_id: string; driver_name?: string }>();
+
+    if (vehicleIds.length > 0) {
+      const { data: aRows, error: aErr } = await supabase
+        .from('vehicle_assignments')
+        .select('vehicle_id, driver_id, drivers(name)')
+        .eq('is_active', true)
+        .in('vehicle_id', vehicleIds);
+
+      if (!aErr && aRows) {
+        aRows.forEach((a: any) => {
+          assignmentsMap.set(a.vehicle_id, { driver_id: a.driver_id, driver_name: a.drivers?.name });
+        });
+      }
+    }
+
+    const mapped = (vRows ?? []).map(r => {
+      const info = assignmentsMap.get(r.id);
+      return mapVehicle({ ...r, driver_id: info?.driver_id }, info?.driver_name);
+    });
+
+    setVehicles(mapped);
+    setIsLoading(false);
+  }, [user, mapVehicle]);
+
+  useEffect(() => {
+    refreshVehicles();
+  }, [refreshVehicles]);
+
+  const addVehicle = async (vehicleData: AddVehicleFormData) => {
+    if (!user) return;
+    setIsLoading(true);
+
+    const { data, error } = await supabase
+      .from('vehicles')
+      .insert({
+        user_id: user.id,
+        number: vehicleData.number,
+        model: 'Not specified',
+        pay_tap_balance: 0,
+        fasttag_linked: false,
+        gps_linked: false,
+        challans_count: 0,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to add vehicle:', error);
+    }
+
+    await refreshVehicles();
   };
 
-  const removeVehicle = (vehicleId: string) => {
-    setVehicles(prev => prev.filter(vehicle => vehicle.id !== vehicleId));
+  const removeVehicle = async (vehicleId: string) => {
+    setIsLoading(true);
+    const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
+    if (error) console.error('Failed to remove vehicle:', error);
+    await refreshVehicles();
   };
 
-  const updateVehicle = (vehicleId: string, updates: Partial<Vehicle>) => {
-    setVehicles(prev =>
-      prev.map(vehicle =>
-        vehicle.id === vehicleId ? { ...vehicle, ...updates } : vehicle
-      )
-    );
+  const updateVehicle = async (vehicleId: string, updates: Partial<Vehicle>) => {
+    setIsLoading(true);
+    const payload: any = {};
+    if (updates.model !== undefined) payload.model = updates.model;
+    if (updates.gpsLinked !== undefined) payload.gps_linked = updates.gpsLinked;
+    if (updates.fastTagLinked !== undefined) payload.fasttag_linked = updates.fastTagLinked;
+    if (updates.payTapBalance !== undefined) payload.pay_tap_balance = updates.payTapBalance;
+    if (updates.challans !== undefined) payload.challans_count = updates.challans;
+
+    const { error } = await supabase.from('vehicles').update(payload).eq('id', vehicleId);
+    if (error) console.error('Failed to update vehicle:', error);
+    await refreshVehicles();
   };
 
-  const assignDriverToVehicle = (vehicleId: string, driverId: string) => {
-    setVehicles(prev =>
-      prev.map(vehicle =>
-        vehicle.id === vehicleId 
-          ? { ...vehicle, driver: { id: driverId, name: 'Assigned' } }
-          : vehicle
-      )
-    );
+  const assignDriverToVehicle = async (vehicleId: string, driverId: string) => {
+    if (!user) return;
+    setIsLoading(true);
+
+    // Deactivate existing active assignment for this vehicle
+    await supabase
+      .from('vehicle_assignments')
+      .update({ is_active: false, unassigned_at: new Date().toISOString() })
+      .eq('vehicle_id', vehicleId)
+      .eq('is_active', true);
+
+    // Create new assignment
+    const { error } = await supabase.from('vehicle_assignments').insert({
+      user_id: user.id,
+      vehicle_id: vehicleId,
+      driver_id: driverId,
+      is_active: true,
+    });
+    if (error) console.error('Failed to assign driver:', error);
+
+    await refreshVehicles();
   };
 
-  const unassignDriverFromVehicle = (vehicleId: string, driverId: string) => {
-    setVehicles(prev =>
-      prev.map(vehicle =>
-        vehicle.id === vehicleId ? { ...vehicle, driver: null } : vehicle
-      )
-    );
+  const unassignDriverFromVehicle = async (vehicleId: string, driverId: string) => {
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('vehicle_assignments')
+      .update({ is_active: false, unassigned_at: new Date().toISOString() })
+      .eq('vehicle_id', vehicleId)
+      .eq('driver_id', driverId)
+      .eq('is_active', true);
+    if (error) console.error('Failed to unassign driver:', error);
+    await refreshVehicles();
   };
 
   return (
@@ -120,7 +190,7 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateVehicle,
         assignDriverToVehicle,
         unassignDriverFromVehicle,
-        isLoading
+        isLoading,
       }}
     >
       {children}

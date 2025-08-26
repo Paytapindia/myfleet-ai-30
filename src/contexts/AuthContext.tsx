@@ -59,21 +59,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
-        if (session?.user) {
-          await loadUserProfile(session.user);
+        
+        if (session?.user && event !== 'SIGNED_OUT') {
+          // Only load profile if we have a valid session
+          setTimeout(async () => {
+            await loadUserProfile(session.user);
+          }, 0);
         } else {
+          // Clear user state on sign out or no session
           setUser(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Check for existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      console.log('Initial session check:', session?.user?.email, error);
+      
+      if (error) {
+        console.error('Session error:', error);
+        setSession(null);
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
       setSession(session);
       if (session?.user) {
         await loadUserProfile(session.user);
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     });
@@ -83,6 +101,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const loadUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
+      console.log('Loading profile for user:', supabaseUser.email);
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -91,6 +111,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading profile:', error);
+        // On profile error, clear user state to force re-authentication
+        setUser(null);
+        setSession(null);
+        return;
+      }
+
+      // If no profile exists, this means the user trigger didn't work or user is invalid
+      if (!profile) {
+        console.warn('No profile found for user, clearing session');
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
         return;
       }
 
@@ -98,19 +130,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         id: supabaseUser.id,
         email: supabaseUser.email || '',
         phone: supabaseUser.phone || '',
-        fullName: profile?.full_name || '',
-        companyName: profile?.company_name || '',
-        panNumber: profile?.pan_number || '',
-        isOnboarded: profile?.is_onboarded || false,
-        subscribed: profile?.subscribed || false,
-        subscriptionTier: profile?.subscription_tier || null,
-        subscriptionEnd: profile?.subscription_end || null,
+        fullName: profile.full_name || '',
+        companyName: profile.company_name || '',
+        panNumber: profile.pan_number || '',
+        isOnboarded: profile.is_onboarded || false,
+        subscribed: profile.subscribed || false,
+        subscriptionTier: profile.subscription_tier || null,
+        subscriptionEnd: profile.subscription_end || null,
       };
 
+      console.log('User profile loaded:', userData.email, userData.isOnboarded);
       setUser(userData);
     } catch (error) {
       console.error('Failed to load user profile:', error);
+      // On any error, clear user state
       setUser(null);
+      setSession(null);
+      await supabase.auth.signOut();
     }
   };
 
@@ -244,27 +280,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logout = async () => {
     try {
-      // Clear local state first
+      console.log('Logging out user');
+      // Clear state first
       setUser(null);
       setSession(null);
       
-      // Clean up auth state from localStorage
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear any remaining auth data
+      localStorage.removeItem('supabase.auth.token');
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
           localStorage.removeItem(key);
         }
       });
       
-      // Sign out from Supabase with global scope
-      await supabase.auth.signOut({ scope: 'global' });
-      
       // Force page reload to ensure clean state
       window.location.href = '/';
     } catch (error) {
-      console.error('Error signing out:', error);
-      // Even if signOut fails, clear local state and redirect
-      setUser(null);
-      setSession(null);
+      console.error('Error during logout:', error);
+      // Force reload even if logout fails
       window.location.href = '/';
     }
   };

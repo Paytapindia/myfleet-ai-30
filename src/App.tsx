@@ -32,6 +32,8 @@ const AppRoutes = () => {
   const { user, isLoading } = useAuth();
   const isActiveSub = user?.subscribed && (!user?.subscriptionEnd || new Date(user.subscriptionEnd) > new Date());
 
+  console.log('AppRoutes render - user:', user?.email, 'isLoading:', isLoading, 'isOnboarded:', user?.isOnboarded);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -45,8 +47,9 @@ const AppRoutes = () => {
     );
   }
 
-  // Not logged in
+  // Not logged in - show landing page and auth routes
   if (!user) {
+    console.log('No user - showing landing page');
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -61,6 +64,7 @@ const AppRoutes = () => {
 
   // Logged in but not onboarded
   if (!user.isOnboarded) {
+    console.log('User not onboarded - showing onboarding');
     return (
     <Routes>
       <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -72,6 +76,7 @@ const AppRoutes = () => {
 
   // Subscription gate for onboarded users without active plan
   if (!isActiveSub) {
+    console.log('No active subscription - showing subscription page');
     return (
       <Routes>
         <Route path="/subscription" element={<SubscriptionPage />} />
@@ -84,6 +89,7 @@ const AppRoutes = () => {
   }
 
   // Fully authenticated, onboarded, and subscribed
+  console.log('Fully authenticated - showing main app');
   return (
     <Routes>
       <Route element={<AppLayout />}>

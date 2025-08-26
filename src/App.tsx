@@ -10,7 +10,6 @@ import { ManualTransactionProvider } from "@/contexts/ManualTransactionContext";
 import { TripProvider } from "@/contexts/TripContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 import Index from "./pages/Index";
-import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfitLossPage from "./pages/ProfitLossPage";
@@ -48,17 +47,17 @@ const AppRoutes = () => {
     );
   }
 
-  // Not logged in - show landing page and auth routes
+  // Not logged in - show auth page directly
   if (!user) {
-    console.log('No user - showing landing page');
+    console.log('No user - showing auth page');
     return (
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<AuthPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />
-        <Route path="*" element={<LandingPage />} />
+        <Route path="*" element={<AuthPage />} />
       </Routes>
     );
   }

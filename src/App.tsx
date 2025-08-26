@@ -8,6 +8,7 @@ import { VehicleProvider } from "@/contexts/VehicleContext";
 import { DriverProvider } from "@/contexts/DriverContext";
 import { ManualTransactionProvider } from "@/contexts/ManualTransactionContext";
 import { TripProvider } from "@/contexts/TripContext";
+import { WalletProvider } from "@/contexts/WalletContext";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
@@ -108,16 +109,18 @@ const App = () => (
         <VehicleProvider>
           <ManualTransactionProvider>
             <TripProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </TooltipProvider>
-          </TripProvider>
-        </ManualTransactionProvider>
-      </VehicleProvider>
+              <WalletProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <AppRoutes />
+                  </BrowserRouter>
+                </TooltipProvider>
+              </WalletProvider>
+            </TripProvider>
+          </ManualTransactionProvider>
+        </VehicleProvider>
       </DriverProvider>
     </AuthProvider>
   </QueryClientProvider>

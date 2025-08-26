@@ -12,7 +12,6 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
-import OnboardingPage from "./pages/OnboardingPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfitLossPage from "./pages/ProfitLossPage";
 import TripManagerPage from "./pages/TripManagerPage";

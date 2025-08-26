@@ -7,12 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { User, Car, Mail } from 'lucide-react';
+import { User, Car, Phone } from 'lucide-react';
 
 const OnboardingPage = () => {
   const [formData, setFormData] = useState({
     fullName: '',
-    email: '',
+    mobileNo: '',
     vehicleNumber: ''
   });
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -31,20 +31,19 @@ const OnboardingPage = () => {
       return;
     }
 
-    if (!formData.email.trim()) {
+    if (!formData.mobileNo.trim()) {
       toast({
-        title: "Email Required",
-        description: "Please enter your email address",
+        title: "Mobile Number Required",
+        description: "Please enter your mobile number",
         variant: "destructive"
       });
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
+    if (!/^\d{10}$/.test(formData.mobileNo)) {
       toast({
-        title: "Valid Email Required",
-        description: "Please enter a valid email address",
+        title: "Valid Mobile Number Required",
+        description: "Please enter a valid 10-digit mobile number",
         variant: "destructive"
       });
       return;
@@ -118,19 +117,27 @@ const OnboardingPage = () => {
               />
             </div>
 
-            {/* Email */}
+            {/* Mobile Number */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center">
-                <Mail className="h-4 w-4 mr-2" />
-                Email Address *
+              <Label htmlFor="mobileNo" className="flex items-center">
+                <Phone className="h-4 w-4 mr-2" />
+                Mobile Number *
               </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email address"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              />
+              <div className="flex">
+                <div className="flex items-center px-3 border border-r-0 border-input bg-muted rounded-l-md">
+                  <span className="text-sm text-muted-foreground font-medium">+91</span>
+                </div>
+                <Input
+                  id="mobileNo"
+                  type="tel"
+                  placeholder="9876543210"
+                  value={formData.mobileNo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, mobileNo: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  className="rounded-l-none text-base"
+                  maxLength={10}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Enter 10-digit mobile number (no verification required)</p>
             </div>
 
 

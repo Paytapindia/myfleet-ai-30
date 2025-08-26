@@ -20,7 +20,7 @@ interface AuthContextType {
   logout: () => void;
   completeOnboarding: (profileData: {
     fullName: string;
-    email: string;
+    mobileNo: string;
     vehicleNumber: string;
   }) => Promise<boolean>;
   updateProfile: (profileData: {
@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const completeOnboarding = async (profileData: {
     fullName: string;
-    email: string;
+    mobileNo: string;
     vehicleNumber: string;
   }): Promise<boolean> => {
     try {
@@ -157,7 +157,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const updatedUser: User = {
         ...user,
         fullName: profileData.fullName,
-        email: profileData.email,
+        email: profileData.mobileNo, // Store mobile number in email field for compatibility
         isOnboarded: true
       };
       

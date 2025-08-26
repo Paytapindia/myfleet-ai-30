@@ -1,0 +1,421 @@
+openapi: 3.0.3
+info:
+  title: Fleet Manager API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /auth/otp:
+    post:
+      summary: Send OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+              required: [phone]
+      responses:
+        '204': { description: OTP sent }
+  /auth/verify:
+    post:
+      summary: Verify OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+                otp: { type: string }
+              required: [phone, otp]
+      responses:
+        '200':
+          description: Auth data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+  /users/me:
+    get:
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+    put:
+      summary: Update profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/User' }
+      responses:
+        '200': { description: Updated user, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+  /users/me/subscription:
+    post:
+      summary: Set subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Subscription' }
+      responses:
+        '200': { description: Updated subscription, content: { application/json: { schema: { $ref: '#/components/schemas/Subscription' } } } }
+  /vehicles:
+    get:
+      summary: List vehicles
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Vehicle' }
+                  total: { type: integer }
+    post:
+      summary: Create vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Vehicle' }
+      responses:
+        '201': { description: Vehicle, content: { application/json: { schema: { $ref: '#/components/schemas/Vehicle' } } } }
+  /vehicles/{id}:
+    get:
+      summary: Get vehicle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Vehicle, content: { application/json: { schema: { $ref: '#/components/schemas/Vehicle' } } } }
+    put:
+      summary: Update vehicle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Vehicle' }
+      responses:
+        '200': { description: Vehicle, content: { application/json: { schema: { $ref: '#/components/schemas/Vehicle' } } } }
+    delete:
+      summary: Delete vehicle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+  /drivers:
+    get:
+      summary: List drivers
+      responses:
+        '200':
+          description: Driver list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Driver' }
+                  total: { type: integer }
+    post:
+      summary: Create driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Driver' }
+      responses:
+        '201': { description: Driver, content: { application/json: { schema: { $ref: '#/components/schemas/Driver' } } } }
+  /drivers/{id}:
+    get:
+      summary: Get driver
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Driver, content: { application/json: { schema: { $ref: '#/components/schemas/Driver' } } } }
+    put:
+      summary: Update driver
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Driver' }
+      responses:
+        '200': { description: Driver, content: { application/json: { schema: { $ref: '#/components/schemas/Driver' } } } }
+    delete:
+      summary: Delete driver
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+  /trips:
+    get:
+      summary: List trips
+      responses:
+        '200':
+          description: Trip list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Trip' }
+                  total: { type: integer }
+    post:
+      summary: Create trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Trip' }
+      responses:
+        '201': { description: Trip, content: { application/json: { schema: { $ref: '#/components/schemas/Trip' } } } }
+  /trips/{id}:
+    get:
+      summary: Get trip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Trip, content: { application/json: { schema: { $ref: '#/components/schemas/Trip' } } } }
+    put:
+      summary: Update trip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Trip' }
+      responses:
+        '200': { description: Trip, content: { application/json: { schema: { $ref: '#/components/schemas/Trip' } } } }
+    delete:
+      summary: Delete trip
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+  /transactions:
+    get:
+      summary: List transactions
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+                  total: { type: integer }
+    post:
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Transaction' }
+      responses:
+        '201': { description: Transaction, content: { application/json: { schema: { $ref: '#/components/schemas/Transaction' } } } }
+  /transactions/{id}:
+    get:
+      summary: Get transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Transaction, content: { application/json: { schema: { $ref: '#/components/schemas/Transaction' } } } }
+    put:
+      summary: Update transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Transaction' }
+      responses:
+        '200': { description: Transaction, content: { application/json: { schema: { $ref: '#/components/schemas/Transaction' } } } }
+    delete:
+      summary: Delete transaction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+  /transactions/analytics:
+    get:
+      summary: P&L analytics
+      parameters:
+        - in: query
+          name: period
+          schema: { type: string, enum: [today, weekly, monthly, yearly] }
+      responses:
+        '200':
+          description: Analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revenue: { type: number }
+                  expenses: { type: number }
+                  net: { type: number }
+  /payments/cashfree/order:
+    post:
+      summary: Create Cashfree order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan: { type: string, enum: [semiannual, annual] }
+                customer:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    phone: { type: string }
+                    email: { type: string }
+                    name: { type: string }
+                returnUrl: { type: string }
+              required: [plan, customer, returnUrl]
+      responses:
+        '200':
+          description: Cashfree session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment_session_id: { type: string }
+                  order_id: { type: string }
+  /payments/cashfree/verify:
+    post:
+      summary: Verify Cashfree order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId: { type: string }
+              required: [orderId]
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isPaid: { type: boolean }
+                  plan: { type: string, nullable: true }
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        phone: { type: string }
+        email: { type: string, nullable: true }
+        fullName: { type: string, nullable: true }
+        isOnboarded: { type: boolean }
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+    Subscription:
+      type: object
+      properties:
+        plan: { type: string, enum: [trial, semiannual, annual], nullable: true }
+        status: { type: string, enum: [inactive, active, expired], nullable: true }
+        startAt: { type: string, format: date-time, nullable: true }
+        endAt: { type: string, format: date-time, nullable: true }
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string }
+        number: { type: string }
+        model: { type: string }
+    Driver:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string }
+    Trip:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        status: { type: string }
+    Transaction:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        type: { type: string }
+        amount: { type: number }

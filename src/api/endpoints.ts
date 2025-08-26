@@ -1,0 +1,53 @@
+export const endpoints = {
+  auth: {
+    sendOtp: "/auth/otp",
+    verifyOtp: "/auth/verify",
+    me: "/users/me",
+    logout: "/auth/logout",
+  },
+  users: {
+    me: "/users/me",
+    updateProfile: "/users/me",
+    subscription: "/users/me/subscription",
+  },
+  vehicles: {
+    list: "/vehicles",
+    byId: (id: string) => `/vehicles/${id}`,
+    assignDriver: (id: string) => `/vehicles/${id}/assign-driver`,
+    unassignDriver: (id: string) => `/vehicles/${id}/unassign-driver`,
+    documents: (id: string) => `/vehicles/${id}/documents`,
+  },
+  drivers: {
+    list: "/drivers",
+    byId: (id: string) => `/drivers/${id}`,
+  },
+  trips: {
+    list: "/trips",
+    byId: (id: string) => `/trips/${id}`,
+    status: (id: string) => `/trips/${id}/status`,
+  },
+  transactions: {
+    list: "/transactions",
+    byId: (id: string) => `/transactions/${id}`,
+    analytics: "/transactions/analytics",
+  },
+  wallets: {
+    fuel: "/wallets/fuel",
+  },
+  fastag: {
+    link: (vehicleId: string) => `/vehicles/${vehicleId}/fastag/link`,
+  },
+  challans: {
+    list: (vehicleId: string) => `/vehicles/${vehicleId}/challans`,
+  },
+  services: {
+    list: (vehicleId: string) => `/vehicles/${vehicleId}/services`,
+  },
+  payments: {
+    createOrder: "/payments/cashfree/order",
+    verifyOrder: "/payments/cashfree/verify",
+  },
+  files: {
+    upload: "/files",
+  },
+};

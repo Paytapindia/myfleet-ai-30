@@ -14,6 +14,261 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          created_at: string
+          document_name: string
+          document_type: string
+          driver_id: string | null
+          expiry_date: string | null
+          file_size: number | null
+          file_url: string
+          id: string
+          issue_date: string | null
+          mime_type: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["document_status"]
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_name: string
+          document_type: string
+          driver_id?: string | null
+          expiry_date?: string | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          issue_date?: string | null
+          mime_type?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_name?: string
+          document_type?: string
+          driver_id?: string | null
+          expiry_date?: string | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          issue_date?: string | null
+          mime_type?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drivers: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          id: string
+          license_expiry: string | null
+          license_number: string
+          name: string
+          phone: string | null
+          rating: number | null
+          status: Database["public"]["Enums"]["driver_status"]
+          total_earnings: number | null
+          total_trips: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          license_expiry?: string | null
+          license_number: string
+          name: string
+          phone?: string | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          total_earnings?: number | null
+          total_trips?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          license_expiry?: string | null
+          license_number?: string
+          name?: string
+          phone?: string | null
+          rating?: number | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          total_earnings?: number | null
+          total_trips?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          category: Database["public"]["Enums"]["expense_category"]
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          receipt_date: string | null
+          receipt_number: string | null
+          receipt_url: string | null
+          rejection_reason: string | null
+          subcategory: string | null
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+          vendor_contact: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+          receipt_date?: string | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          rejection_reason?: string | null
+          subcategory?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          receipt_date?: string | null
+          receipt_number?: string | null
+          receipt_url?: string | null
+          rejection_reason?: string | null
+          subcategory?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -59,15 +314,449 @@ export type Database = {
         }
         Relationships: []
       }
+      settlements: {
+        Row: {
+          commission_amount: number
+          created_at: string
+          deductions: number
+          driver_id: string | null
+          gross_earnings: number
+          id: string
+          net_amount: number
+          notes: string | null
+          payment_date: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          period_end: string
+          period_start: string
+          status: Database["public"]["Enums"]["settlement_status"]
+          total_trips: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          commission_amount?: number
+          created_at?: string
+          deductions?: number
+          driver_id?: string | null
+          gross_earnings?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          period_end: string
+          period_start: string
+          status?: Database["public"]["Enums"]["settlement_status"]
+          total_trips?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          commission_amount?: number
+          created_at?: string
+          deductions?: number
+          driver_id?: string | null
+          gross_earnings?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          period_end?: string
+          period_start?: string
+          status?: Database["public"]["Enums"]["settlement_status"]
+          total_trips?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          id: string
+          is_manual: boolean | null
+          location: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          receipt_url: string | null
+          reference_number: string | null
+          transaction_date: string
+          trip_id: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description: string
+          id?: string
+          is_manual?: boolean | null
+          location?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          receipt_url?: string | null
+          reference_number?: string | null
+          transaction_date?: string
+          trip_id?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_manual?: boolean | null
+          location?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference?: string | null
+          receipt_url?: string | null
+          reference_number?: string | null
+          transaction_date?: string
+          trip_id?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          base_fare: number | null
+          cancellation_reason: string | null
+          commission: number | null
+          completed_at: string | null
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          customer_rating: number | null
+          destination: string | null
+          destination_coordinates: unknown | null
+          distance_fare: number | null
+          distance_km: number | null
+          driver_earnings: number | null
+          driver_id: string | null
+          driver_rating: number | null
+          id: string
+          notes: string | null
+          pickup_coordinates: unknown | null
+          pickup_location: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["trip_status"]
+          toll_charges: number | null
+          total_fare: number | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string
+          waiting_charges: number | null
+        }
+        Insert: {
+          base_fare?: number | null
+          cancellation_reason?: string | null
+          commission?: number | null
+          completed_at?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_rating?: number | null
+          destination?: string | null
+          destination_coordinates?: unknown | null
+          distance_fare?: number | null
+          distance_km?: number | null
+          driver_earnings?: number | null
+          driver_id?: string | null
+          driver_rating?: number | null
+          id?: string
+          notes?: string | null
+          pickup_coordinates?: unknown | null
+          pickup_location?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["trip_status"]
+          toll_charges?: number | null
+          total_fare?: number | null
+          updated_at?: string
+          user_id: string
+          vehicle_id: string
+          waiting_charges?: number | null
+        }
+        Update: {
+          base_fare?: number | null
+          cancellation_reason?: string | null
+          commission?: number | null
+          completed_at?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_rating?: number | null
+          destination?: string | null
+          destination_coordinates?: unknown | null
+          distance_fare?: number | null
+          distance_km?: number | null
+          driver_earnings?: number | null
+          driver_id?: string | null
+          driver_rating?: number | null
+          id?: string
+          notes?: string | null
+          pickup_coordinates?: unknown | null
+          pickup_location?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["trip_status"]
+          toll_charges?: number | null
+          total_fare?: number | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string
+          waiting_charges?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trips_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_assignments: {
+        Row: {
+          assigned_at: string
+          driver_id: string
+          id: string
+          is_active: boolean
+          unassigned_at: string | null
+          user_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          driver_id: string
+          id?: string
+          is_active?: boolean
+          unassigned_at?: string | null
+          user_id: string
+          vehicle_id: string
+        }
+        Update: {
+          assigned_at?: string
+          driver_id?: string
+          id?: string
+          is_active?: boolean
+          unassigned_at?: string | null
+          user_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_assignments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          challans_count: number | null
+          color: string | null
+          created_at: string
+          fasttag_balance: number | null
+          fasttag_linked: boolean | null
+          gps_device_id: string | null
+          gps_linked: boolean | null
+          id: string
+          insurance_expiry: string | null
+          last_service_date: string | null
+          make: string | null
+          model: string | null
+          next_service_due: string | null
+          number: string
+          odometer_reading: number | null
+          pay_tap_balance: number | null
+          pollution_expiry: string | null
+          registration_expiry: string | null
+          status: Database["public"]["Enums"]["vehicle_status"]
+          updated_at: string
+          user_id: string
+          year: number | null
+        }
+        Insert: {
+          challans_count?: number | null
+          color?: string | null
+          created_at?: string
+          fasttag_balance?: number | null
+          fasttag_linked?: boolean | null
+          gps_device_id?: string | null
+          gps_linked?: boolean | null
+          id?: string
+          insurance_expiry?: string | null
+          last_service_date?: string | null
+          make?: string | null
+          model?: string | null
+          next_service_due?: string | null
+          number: string
+          odometer_reading?: number | null
+          pay_tap_balance?: number | null
+          pollution_expiry?: string | null
+          registration_expiry?: string | null
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          updated_at?: string
+          user_id: string
+          year?: number | null
+        }
+        Update: {
+          challans_count?: number | null
+          color?: string | null
+          created_at?: string
+          fasttag_balance?: number | null
+          fasttag_linked?: boolean | null
+          gps_device_id?: string | null
+          gps_linked?: boolean | null
+          id?: string
+          insurance_expiry?: string | null
+          last_service_date?: string | null
+          make?: string | null
+          model?: string | null
+          next_service_due?: string | null
+          number?: string
+          odometer_reading?: number | null
+          pay_tap_balance?: number | null
+          pollution_expiry?: string | null
+          registration_expiry?: string | null
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          updated_at?: string
+          user_id?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_trip_earnings: {
+        Args: {
+          p_base_fare: number
+          p_commission_rate?: number
+          p_distance_fare: number
+          p_toll_charges?: number
+          p_waiting_charges?: number
+        }
+        Returns: {
+          commission: number
+          driver_earnings: number
+          total_fare: number
+        }[]
+      }
+      log_activity: {
+        Args: {
+          p_action: string
+          p_description?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_metadata?: Json
+          p_user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      document_status:
+        | "uploaded"
+        | "missing"
+        | "expired"
+        | "pending_review"
+        | "approved"
+        | "rejected"
+      driver_status: "active" | "inactive" | "suspended"
+      expense_category:
+        | "fuel"
+        | "maintenance"
+        | "insurance"
+        | "permits"
+        | "parking"
+        | "tolls"
+        | "fines"
+        | "other"
+      payment_method:
+        | "upi"
+        | "cash"
+        | "bank_transfer"
+        | "card"
+        | "wallet"
+        | "other"
+      settlement_status: "pending" | "processing" | "completed" | "cancelled"
+      transaction_type:
+        | "fuel"
+        | "parking"
+        | "fasttag"
+        | "add_money"
+        | "maintenance"
+        | "insurance"
+        | "revenue"
+        | "toll"
+        | "permit"
+        | "fine"
+        | "manual_income"
+        | "manual_expense"
+      trip_status: "scheduled" | "in_progress" | "completed" | "cancelled"
+      vehicle_status: "active" | "maintenance" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -194,6 +883,51 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      document_status: [
+        "uploaded",
+        "missing",
+        "expired",
+        "pending_review",
+        "approved",
+        "rejected",
+      ],
+      driver_status: ["active", "inactive", "suspended"],
+      expense_category: [
+        "fuel",
+        "maintenance",
+        "insurance",
+        "permits",
+        "parking",
+        "tolls",
+        "fines",
+        "other",
+      ],
+      payment_method: [
+        "upi",
+        "cash",
+        "bank_transfer",
+        "card",
+        "wallet",
+        "other",
+      ],
+      settlement_status: ["pending", "processing", "completed", "cancelled"],
+      transaction_type: [
+        "fuel",
+        "parking",
+        "fasttag",
+        "add_money",
+        "maintenance",
+        "insurance",
+        "revenue",
+        "toll",
+        "permit",
+        "fine",
+        "manual_income",
+        "manual_expense",
+      ],
+      trip_status: ["scheduled", "in_progress", "completed", "cancelled"],
+      vehicle_status: ["active", "maintenance", "inactive"],
+    },
   },
 } as const

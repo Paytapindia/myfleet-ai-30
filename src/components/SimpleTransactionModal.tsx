@@ -83,31 +83,38 @@ export const SimpleTransactionModal = ({
   
   const categories = type === 'income' ? incomeCategories : expenseCategories;
   
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const selectedVehicle = vehicles.find(v => v.id === data.vehicleId) || { id: 'general', number: 'General' };
     const selectedCategory = categories.find(c => c.value === data.category);
     
-    addManualTransaction({
-      vehicleId: selectedVehicle.id,
-      vehicleNumber: selectedVehicle.number,
-      type: data.category as TransactionType,
-      amount: data.amount,
-      description: data.description,
-      date: data.date,
-      category: type,
-      paymentMethod: 'cash',
-      isManual: true,
-      reference: attachedFile ? `attachment-${attachedFile.name}` : undefined,
-    });
-    
-    toast({
-      title: `${type === 'income' ? 'Income' : 'Expense'} Added`,
-      description: `₹${data.amount.toLocaleString()} for ${selectedCategory?.label} has been recorded.`
-    });
-    
-    form.reset();
-    setAttachedFile(null);
-    setOpen(false);
+    try {
+      await addManualTransaction({
+        vehicleId: selectedVehicle.id,
+        vehicleNumber: selectedVehicle.number,
+        type: data.category as TransactionType,
+        amount: data.amount,
+        description: data.description,
+        date: data.date,
+        category: type,
+        paymentMethod: 'cash',
+        isManual: true,
+        reference: attachedFile ? `attachment-${attachedFile.name}` : undefined,
+      });
+      
+      toast({
+        title: `${type === 'income' ? 'Income' : 'Expense'} Added`,
+        description: `₹${data.amount.toLocaleString()} for ${selectedCategory?.label} has been recorded.`
+      });
+      
+      form.reset();
+      setAttachedFile(null);
+      setOpen(false);
+      
+      // Force a page refresh for real-time update
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to add transaction:', error);
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -54,22 +54,38 @@ export const useProfitLoss = (vehicles: Vehicle[], period: PnLPeriod) => {
       });
     });
 
-    // Include manual transactions in the calculation
+    // Include manual transactions in the calculation with proper date formatting
     manualTransactions.forEach(transaction => {
+      // Ensure consistent date format for comparison
+      const transactionDate = new Date(transaction.date).toISOString().split('T')[0];
+      
+      console.log(`Comparing transaction date ${transactionDate} with period ${period}:`, {
+        todayStr,
+        startDateStr,
+        transactionDate,
+        amount: transaction.amount,
+        category: transaction.category,
+        description: transaction.description
+      });
+      
       if (period === 'today') {
-        if (transaction.date === todayStr) {
+        if (transactionDate === todayStr) {
           if (transaction.category === 'income') {
             totalRevenue += transaction.amount;
+            console.log('Added income:', transaction.amount, 'New total revenue:', totalRevenue);
           } else {
             totalExpenses += transaction.amount;
+            console.log('Added expense:', transaction.amount, 'New total expenses:', totalExpenses);
           }
         }
       } else {
-        if (transaction.date >= startDateStr && transaction.date <= todayStr) {
+        if (transactionDate >= startDateStr && transactionDate <= todayStr) {
           if (transaction.category === 'income') {
             totalRevenue += transaction.amount;
+            console.log('Added income:', transaction.amount, 'New total revenue:', totalRevenue);
           } else {
             totalExpenses += transaction.amount;
+            console.log('Added expense:', transaction.amount, 'New total expenses:', totalExpenses);
           }
         }
       }

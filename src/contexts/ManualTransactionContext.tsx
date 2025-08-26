@@ -40,6 +40,7 @@ export const ManualTransactionProvider: React.FC<{ children: React.ReactNode }> 
     
     setIsLoading(true);
     try {
+      // Fetch transactions first, then get vehicle data separately for better reliability
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -49,23 +50,39 @@ export const ManualTransactionProvider: React.FC<{ children: React.ReactNode }> 
 
       if (error) throw error;
 
-      // Map Supabase data to Transaction type
-      const transactions: Transaction[] = data?.map(t => ({
-        id: t.id,
-        vehicleId: t.vehicle_id || '',
-        vehicleNumber: '', // Will be populated from vehicles table
-        type: t.type,
-        amount: Number(t.amount),
-        description: t.description,
-        date: t.transaction_date,
-        location: t.location,
-        reference: t.reference_number,
-        category: t.category as 'income' | 'expense',
-        paymentMethod: t.payment_method,
-        isManual: t.is_manual
-      })) || [];
+      // Get vehicle data for mapping vehicle numbers
+      const { data: vehicleData } = await supabase
+        .from('vehicles')
+        .select('id, number, model')
+        .eq('user_id', user.id);
+
+      const vehicleMap = new Map(vehicleData?.map(v => [v.id, v]) || []);
+
+      // Map Supabase data to Transaction type with proper date formatting
+      const transactions: Transaction[] = data?.map(t => {
+        // Convert timestamp to date string for consistent comparison
+        const dateObj = new Date(t.transaction_date);
+        const dateString = dateObj.toISOString().split('T')[0];
+        const vehicle = vehicleMap.get(t.vehicle_id);
+        
+        return {
+          id: t.id,
+          vehicleId: t.vehicle_id || '',
+          vehicleNumber: vehicle?.number || 'General',
+          type: t.type,
+          amount: Number(t.amount),
+          description: t.description,
+          date: dateString, // Store as YYYY-MM-DD format for consistent comparison
+          location: t.location,
+          reference: t.reference_number,
+          category: t.category as 'income' | 'expense',
+          paymentMethod: t.payment_method,
+          isManual: t.is_manual
+        };
+      }) || [];
 
       setManualTransactions(transactions);
+      console.log('Loaded transactions:', transactions.length, transactions);
     } catch (error) {
       console.error('Error loading transactions:', error);
       toast.error('Failed to load transactions');
@@ -78,11 +95,14 @@ export const ManualTransactionProvider: React.FC<{ children: React.ReactNode }> 
     if (!user) return;
 
     try {
+      // Convert date to proper format and create timestamp
+      const transactionDate = new Date(transaction.date);
+      
       const { data, error } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
-          vehicle_id: transaction.vehicleId || null,
+          vehicle_id: transaction.vehicleId === 'general' ? null : transaction.vehicleId,
           type: transaction.type,
           category: transaction.category,
           amount: transaction.amount,
@@ -90,23 +110,28 @@ export const ManualTransactionProvider: React.FC<{ children: React.ReactNode }> 
           reference_number: transaction.reference,
           location: transaction.location,
           payment_method: transaction.paymentMethod,
-          transaction_date: transaction.date,
+          transaction_date: transactionDate.toISOString(),
           is_manual: true
         })
-        .select()
+        .select('*')
         .single();
 
       if (error) throw error;
 
-      // Map and add to local state
+      // Get vehicle data for the new transaction
+      const vehicleNumber = transaction.vehicleId === 'general' || !transaction.vehicleId 
+        ? 'General' 
+        : transaction.vehicleNumber;
+
+      // Map and add to local state with proper formatting
       const newTransaction: Transaction = {
         id: data.id,
         vehicleId: data.vehicle_id || '',
-        vehicleNumber: '', // Will be populated from vehicles table
+        vehicleNumber: vehicleNumber,
         type: data.type,
         amount: Number(data.amount),
         description: data.description,
-        date: data.transaction_date,
+        date: transaction.date, // Keep original date format for consistency
         location: data.location,
         reference: data.reference_number,
         category: data.category as 'income' | 'expense',
@@ -116,6 +141,12 @@ export const ManualTransactionProvider: React.FC<{ children: React.ReactNode }> 
 
       setManualTransactions(prev => [newTransaction, ...prev]);
       toast.success('Transaction added successfully');
+      
+      // Force refresh to ensure data consistency
+      setTimeout(() => {
+        refreshTransactions();
+      }, 500);
+      
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast.error('Failed to add transaction');

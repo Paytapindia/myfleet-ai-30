@@ -70,13 +70,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        loadUserProfile(session.user);
-      } else {
-        setIsLoading(false);
+        await loadUserProfile(session.user);
       }
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();

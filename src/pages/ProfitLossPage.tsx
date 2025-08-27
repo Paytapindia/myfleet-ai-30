@@ -38,9 +38,9 @@ const ProfitLossPage = () => {
       </div>
       
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Mobile Filter Bar */}
-        <div className="md:hidden">
+        <div className="md:hidden mb-4">
           <MobileFilterBar initialFilters={filters} onFiltersChange={setFilters} />
         </div>
 
@@ -53,7 +53,9 @@ const ProfitLossPage = () => {
         </div>
         
         {/* Add Transaction Hero */}
-        <AddTransactionHero />
+        <div className="mb-4 sm:mb-6">
+          <AddTransactionHero />
+        </div>
         
         {/* Summary Cards */}
         <ProfitLossSummary data={profitLossData} />

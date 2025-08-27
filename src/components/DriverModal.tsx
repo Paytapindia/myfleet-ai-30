@@ -222,13 +222,21 @@ const DriverModal = ({ open, setOpen, vehicleId, vehicleNumber }: DriverModalPro
 
           {/* Add New Driver Section */}
           {!showAddForm ? (
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-3">
               <Button 
                 onClick={() => setShowAddForm(true)}
                 className="flex items-center gap-2 px-6 py-3"
               >
                 <Plus className="h-4 w-4" />
-                + ADD DRIVER
+                Add Driver
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => window.open('tel:+919900010964', '_self')}
+                className="flex items-center gap-2 px-6 py-3"
+              >
+                <Phone className="h-4 w-4" />
+                Book Driver
               </Button>
             </div>
           ) : (

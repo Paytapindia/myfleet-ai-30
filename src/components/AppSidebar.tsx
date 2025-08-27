@@ -8,7 +8,8 @@ import {
   AlertCircle, 
   ChevronDown, 
   FolderOpen, 
-  Settings 
+  Settings,
+  Satellite 
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -35,6 +36,7 @@ const mainItems = [
 
 const managerItems = [
   { title: "Vehicle Manager", url: "/vehicle-manager", icon: Truck },
+  { title: "GPS Manager", url: "/gps-manager", icon: Satellite },
   { title: "PayTap Dashboard", url: "/paytap-dashboard", icon: CreditCard },
   { title: "Challans Dashboard", url: "/challans-dashboard", icon: AlertCircle },
   { title: "Vehicle Operators", url: "/manage-operators", icon: Users },
@@ -62,6 +64,7 @@ export default function AppSidebar() {
 
   const managerLabelMap: Record<string, string> = {
     "Vehicle Manager": t("nav.vehicleManager"),
+    "GPS Manager": t("nav.gpsManager"),
     "PayTap Dashboard": "PayTap Dashboard",
     "Challans Dashboard": "Challans Dashboard",
     "Vehicle Operators": t("nav.manageOperators"),

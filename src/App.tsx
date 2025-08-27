@@ -22,6 +22,7 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage";
 import ManageOperatorsPage from "./pages/ManageOperatorsPage";
 import VehicleManagerPage from "./pages/VehicleManagerPage";
+import GpsManagerPage from "./pages/GpsManagerPage";
 import PayTapDashboardPage from "./pages/PayTapDashboardPage";
 import ChallansDashboardPage from "./pages/ChallansDashboardPage";
 import AppLayout from "./components/AppLayout";
@@ -86,6 +87,7 @@ const AppRoutes = () => {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profit-loss" element={<ProfitLossPage />} />
         <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
+        <Route path="/gps-manager" element={<GpsManagerPage />} />
         <Route path="/trip-manager" element={<TripManagerPage />} />
         <Route path="/manage-operators" element={<ManageOperatorsPage />} />
           <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />

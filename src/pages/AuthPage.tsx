@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Truck, ArrowLeft, Car } from 'lucide-react';
+import { Truck, Car } from 'lucide-react';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -77,14 +77,6 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
           <div className="flex items-center justify-center mb-4">
             <Truck className="h-8 w-8 text-primary mr-2" />
             <h1 className="text-2xl font-bold">MyFleet</h1>

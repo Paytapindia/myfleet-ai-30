@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   Fuel,
-  UserCheck
+  UserCheck,
+  Satellite,
+  Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +59,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showChallanModal, setShowChallanModal] = useState(false);
+  const [gpsActive, setGpsActive] = useState(vehicle.gpsLinked);
 
   // Get actual driver name from DriverContext
   const actualDriver = vehicle.driver ? getDriverById(vehicle.driver.id) : null;
@@ -203,6 +206,57 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
               </div>
               <Button size="sm" variant="secondary" className="rounded-xl">
                 Schedule
+              </Button>
+            </div>
+
+            {/* GPS Status */}
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Satellite className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">GPS</p>
+                  <p className={`text-xs font-medium ${gpsActive ? 'text-green-600' : 'text-red-600'}`}>
+                    {gpsActive ? 'Active' : 'Inactive'}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                variant={gpsActive ? "secondary" : "default"} 
+                className="rounded-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGpsActive(!gpsActive);
+                }}
+              >
+                {gpsActive ? 'Deactivate' : 'Activate'}
+              </Button>
+            </div>
+
+            {/* 24/7 Roadside Assistance */}
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Phone className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Roadside Assistance</p>
+                  <p className="text-xs text-muted-foreground font-medium">24/7 Emergency Support</p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                variant="default" 
+                className="rounded-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open('tel:+919900010964', '_self');
+                }}
+              >
+                <Phone className="h-4 w-4 mr-1" />
+                Call
               </Button>
             </div>
           </CollapsibleContent>

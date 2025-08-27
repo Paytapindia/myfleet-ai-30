@@ -1,4 +1,4 @@
-import { MessageCircle, User, LogOut, LifeBuoy } from "lucide-react";
+import { Bell, User, LogOut, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,13 +13,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ChatbotModal from "@/components/ChatbotModal";
+import { Badge } from "@/components/ui/badge";
 
 const DashboardHeader = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
+  // Mock vehicle alerts - replace with real data later
+  const vehicleAlerts = [
+    { id: 1, vehicle: "MH12AB1234", message: "Service due in 2 days", type: "warning", time: "2 hours ago" },
+    { id: 2, vehicle: "MH12CD5678", message: "Insurance expires tomorrow", type: "urgent", time: "5 hours ago" },
+    { id: 3, vehicle: "MH12EF9012", message: "Fuel level low", type: "info", time: "1 day ago" },
+  ];
+
+  const unreadCount = vehicleAlerts.length;
 
   return (
     <header className="sticky top-0 z-40 glass-effect border-b border-border/50 px-6 py-4">
@@ -35,14 +44,53 @@ const DashboardHeader = () => {
         </div>
         
         <div className="flex items-center space-x-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative apple-button rounded-xl h-11 w-11 hover:bg-primary/10"
-            onClick={() => setIsChatOpen(true)}
-          >
-            <MessageCircle className="h-5 w-5" />
-          </Button>
+          <DropdownMenu open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative apple-button rounded-xl h-11 w-11 hover:bg-primary/10"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadCount}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 rounded-2xl apple-shadow glass-effect border-border/50">
+              <DropdownMenuLabel className="flex items-center justify-between">
+                <span>Vehicle Alerts</span>
+                <Badge variant="secondary">{unreadCount} new</Badge>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {vehicleAlerts.length > 0 ? (
+                vehicleAlerts.map((alert) => (
+                  <DropdownMenuItem key={alert.id} className="flex flex-col items-start p-4">
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-medium text-sm">{alert.vehicle}</span>
+                      <Badge 
+                        variant={alert.type === 'urgent' ? 'destructive' : alert.type === 'warning' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {alert.type}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-1">{alert.message}</p>
+                    <span className="text-xs text-muted-foreground">{alert.time}</span>
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>
+                  <span className="text-sm text-muted-foreground">No alerts</span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -76,11 +124,6 @@ const DashboardHeader = () => {
           </DropdownMenu>
         </div>
       </div>
-      
-      <ChatbotModal 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-      />
     </header>
   );
 };

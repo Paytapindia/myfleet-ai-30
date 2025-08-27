@@ -30,6 +30,7 @@ const DriverModal = ({ open, setOpen, vehicleId, vehicleNumber }: DriverModalPro
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<AddDriverFormData>({
     name: "",
@@ -127,6 +128,7 @@ const DriverModal = ({ open, setOpen, vehicleId, vehicleNumber }: DriverModalPro
       // Reset form and close modal
       setFormData({ name: "", licenseNumber: "", dateOfBirth: "", phone: "" });
       setLicenseFile(null);
+      setShowAddForm(false);
       setOpen(false);
     } catch (error) {
       toast({
@@ -142,6 +144,7 @@ const DriverModal = ({ open, setOpen, vehicleId, vehicleNumber }: DriverModalPro
   const resetForm = () => {
     setFormData({ name: "", licenseNumber: "", dateOfBirth: "", phone: "" });
     setLicenseFile(null);
+    setShowAddForm(false);
   };
 
   return (
@@ -217,120 +220,141 @@ const DriverModal = ({ open, setOpen, vehicleId, vehicleNumber }: DriverModalPro
             </Card>
           )}
 
-          {/* Add New Driver */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+          {/* Add New Driver Section */}
+          {!showAddForm ? (
+            <div className="flex justify-center">
+              <Button 
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center gap-2 px-6 py-3"
+              >
                 <Plus className="h-4 w-4" />
-                Add New Driver
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-3 sm:space-y-4">
-                <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm">Driver Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter driver's full name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      className="text-sm"
-                    />
+                + ADD DRIVER
+              </Button>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Book Driver Now
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name" className="text-sm">Driver Name *</Label>
+                      <Input
+                        id="name"
+                        placeholder="Enter driver's full name"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-sm">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="e.g., +91 9876543210"
+                        value={formData.phone}
+                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="e.g., +91 9876543210"
-                      value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="license" className="text-sm">License Number (Optional)</Label>
+                      <Input
+                        id="license"
+                        placeholder="e.g., DL1420110012345"
+                        value={formData.licenseNumber}
+                        onChange={(e) => setFormData(prev => ({ ...prev, licenseNumber: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="license" className="text-sm">License Number (Optional)</Label>
-                    <Input
-                      id="license"
-                      placeholder="e.g., DL1420110012345"
-                      value={formData.licenseNumber}
-                      onChange={(e) => setFormData(prev => ({ ...prev, licenseNumber: e.target.value }))}
-                      className="text-sm"
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="dob" className="text-sm">Date of Birth (Optional)</Label>
+                      <Input
+                        id="dob"
+                        type="date"
+                        value={formData.dateOfBirth}
+                        onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
 
+                  {/* File Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="dob" className="text-sm">Date of Birth (Optional)</Label>
-                    <Input
-                      id="dob"
-                      type="date"
-                      value={formData.dateOfBirth}
-                      onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* File Upload */}
-                <div className="space-y-2">
-                  <Label htmlFor="license-upload" className="text-sm">Upload Driving License (Optional)</Label>
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 sm:p-6">
-                    <input
-                      type="file"
-                      id="license-upload"
-                      accept="image/jpeg,image/jpg,image/png,application/pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="license-upload"
-                      className="cursor-pointer flex flex-col items-center gap-2"
-                    >
-                      <Upload className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
-                      <div className="text-center">
-                        <p className="text-xs sm:text-sm font-medium">
-                          {licenseFile ? licenseFile.name : "Click to upload license"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Supports JPG, PNG, PDF (Max 5MB)
-                        </p>
-                      </div>
-                    </label>
-                    
-                    {licenseFile && (
-                      <div className="mt-3 flex items-center justify-between p-2 bg-muted rounded">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <FileText className="h-4 w-4 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm truncate">{licenseFile.name}</span>
+                    <Label htmlFor="license-upload" className="text-sm">Upload Driving License (Optional)</Label>
+                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 sm:p-6">
+                      <input
+                        type="file"
+                        id="license-upload"
+                        accept="image/jpeg,image/jpg,image/png,application/pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="license-upload"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
+                        <Upload className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium">
+                            {licenseFile ? licenseFile.name : "Click to upload license"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Supports JPG, PNG, PDF (Max 5MB)
+                          </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setLicenseFile(null)}
-                          className="flex-shrink-0"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    )}
+                      </label>
+                      
+                      {licenseFile && (
+                        <div className="mt-3 flex items-center justify-between p-2 bg-muted rounded">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <FileText className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm truncate">{licenseFile.name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setLicenseFile(null)}
+                            className="flex-shrink-0"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      className="flex-1 text-sm" 
+                      onClick={() => setShowAddForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="flex-1 text-sm" 
+                      onClick={handleCreateDriver}
+                      disabled={isLoading || !formData.name || !formData.phone}
+                    >
+                      {isLoading ? "Adding Driver..." : "Add Driver"}
+                    </Button>
                   </div>
                 </div>
-
-                <Button 
-                  className="w-full text-sm" 
-                  onClick={handleCreateDriver}
-                  disabled={isLoading || !formData.name || !formData.phone}
-                >
-                  {isLoading ? "Adding Driver..." : "Add Driver"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </DialogContent>
     </Dialog>

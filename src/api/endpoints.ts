@@ -63,5 +63,9 @@ export const endpoints = {
     orderCard: "/paytap/cards/order",
     assignCard: (vehicleId: string) => `/paytap/cards/assign/${vehicleId}`,
     transferMoney: "/paytap/transfer",
+    cardSettings: (cardId: string) => `/paytap/cards/${cardId}/settings`,
+    updateCardSettings: (cardId: string) => `/paytap/cards/${cardId}/settings`,
+    blockCard: "/paytap/cards/block",
+    unblockCard: (cardId: string) => `/paytap/cards/${cardId}/unblock`,
   },
 };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, CreditCard, Plus, RefreshCw, History, Car, IndianRupee } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import PayTapManageVehicleModal from "@/components/PayTapManageVehicleModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,8 +20,10 @@ const PayTapDashboardPage = () => {
   const { vehicles } = useVehicles();
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
   const [orderCardOpen, setOrderCardOpen] = useState(false);
+  const [manageVehicleOpen, setManageVehicleOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [selectedVehicleNumber, setSelectedVehicleNumber] = useState("");
 
   // Calculate totals
   const totalBalance = vehicles.reduce((sum, vehicle) => sum + vehicle.payTapBalance, 0);
@@ -236,7 +239,15 @@ const PayTapDashboardPage = () => {
                             {vehicle.fastTagLinked ? "Card Linked" : "No Card"}
                           </Badge>
                         </div>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedVehicle(vehicle.id);
+                            setSelectedVehicleNumber(vehicle.number);
+                            setManageVehicleOpen(true);
+                          }}
+                        >
                           Manage
                         </Button>
                       </div>
@@ -316,6 +327,14 @@ const PayTapDashboardPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* PayTap Manage Vehicle Modal */}
+      <PayTapManageVehicleModal
+        open={manageVehicleOpen}
+        setOpen={setManageVehicleOpen}
+        vehicleId={selectedVehicle}
+        vehicleNumber={selectedVehicleNumber}
+      />
     </div>
   );
 };

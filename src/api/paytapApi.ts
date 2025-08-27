@@ -49,6 +49,28 @@ export interface TransferMoneyRequest {
   amount: number;
 }
 
+export interface CardSettings {
+  cardId: string;
+  cardNumber: string;
+  contactlessEnabled: boolean;
+  isBlocked: boolean;
+  posLimit: number;
+  status: 'active' | 'inactive' | 'blocked';
+  vehicleId?: string;
+}
+
+export interface BlockCardRequest {
+  cardId: string;
+  temporary: boolean;
+  reason?: string;
+}
+
+export interface UpdateCardSettingsRequest {
+  cardId: string;
+  contactlessEnabled?: boolean;
+  posLimit?: number;
+}
+
 class PayTapApi {
   async getAccount(): Promise<PayTapAccount> {
     return http.get<PayTapAccount>(endpoints.paytap.account);
@@ -111,6 +133,37 @@ class PayTapApi {
 
   async refreshAccount(): Promise<PayTapAccount> {
     return http.post<PayTapAccount>(`${endpoints.paytap.account}/refresh`);
+  }
+
+  async getCardSettings(cardId: string): Promise<CardSettings> {
+    return http.get<CardSettings>(endpoints.paytap.cardSettings(cardId));
+  }
+
+  async updateContactlessPayment(cardId: string, enabled: boolean): Promise<{ success: boolean }> {
+    return http.post<{ success: boolean }>(
+      endpoints.paytap.updateCardSettings(cardId),
+      { contactlessEnabled: enabled }
+    );
+  }
+
+  async blockCard(request: BlockCardRequest): Promise<{ success: boolean }> {
+    return http.post<{ success: boolean }>(
+      endpoints.paytap.blockCard,
+      request
+    );
+  }
+
+  async unblockCard(cardId: string): Promise<{ success: boolean }> {
+    return http.post<{ success: boolean }>(
+      endpoints.paytap.unblockCard(cardId)
+    );
+  }
+
+  async setPosLimit(cardId: string, limit: number): Promise<{ success: boolean }> {
+    return http.post<{ success: boolean }>(
+      endpoints.paytap.updateCardSettings(cardId),
+      { posLimit: limit }
+    );
   }
 }
 

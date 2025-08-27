@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import AssignDriverModal from "./AssignDriverModal";
 import VehicleDetailsModal from "./VehicleDetailsModal";
+import VehicleDetailsPopover from "./VehicleDetailsPopover";
 import FuelModal from "./FuelModal";
 import FastagModal from "./FastagModal";
 import DriverModal from "./DriverModal";
@@ -71,22 +72,22 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Car className="h-5 w-5 text-primary" strokeWidth={1.5} />
-            </div>
             <div>
               <h3 className="text-xl font-bold text-foreground tracking-tight">{vehicle.number}</h3>
               <p className="text-sm text-muted-foreground font-medium">{vehicle.model}</p>
             </div>
           </div>
-          {vehicle.challans > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="rounded-full px-2.5 py-1 text-xs font-medium bg-red-500/10 text-red-600 border-red-200/50"
-            >
-              {vehicle.challans} Fine{vehicle.challans > 1 ? 's' : ''}
-            </Badge>
-          )}
+          <div className="flex items-center space-x-2">
+            {vehicle.challans > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="rounded-full px-2.5 py-1 text-xs font-medium bg-red-500/10 text-red-600 border-red-200/50"
+              >
+                {vehicle.challans} Fine{vehicle.challans > 1 ? 's' : ''}
+              </Badge>
+            )}
+            <VehicleDetailsPopover vehicleNumber={vehicle.number} />
+          </div>
         </div>
       </CardHeader>
 

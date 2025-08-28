@@ -10,7 +10,7 @@ export const AddTransactionHero = () => {
 
   return (
     <>
-      <Card className="mb-6 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+      <Card className="mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
         <CardContent className="p-6">
           <div className="text-center mb-6">
             <h2 className="text-xl font-semibold mb-2">Quick Add Transaction</h2>
@@ -19,7 +19,7 @@ export const AddTransactionHero = () => {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Button
               size="lg"
               onClick={() => setIncomeModalOpen(true)}

@@ -23,24 +23,18 @@ export const AddTransactionHero = () => {
             <Button
               size="lg"
               onClick={() => setIncomeModalOpen(true)}
-              className="h-16 text-lg flex flex-col gap-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 hover:border-green-700"
+              className="h-16 text-base flex flex-col gap-2 bg-white hover:bg-green-50 text-green-600 border-2 border-green-600 hover:border-green-700"
             >
-              <div className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                <TrendingUp className="h-5 w-5" />
-              </div>
+              <TrendingUp className="h-5 w-5" />
               Add Income
             </Button>
             
             <Button
               size="lg"
               onClick={() => setExpenseModalOpen(true)}
-              className="h-16 text-lg flex flex-col gap-2 bg-white hover:bg-red-50 text-red-600 border-2 border-red-600 hover:border-red-700"
+              className="h-16 text-base flex flex-col gap-2 bg-white hover:bg-red-50 text-red-600 border-2 border-red-600 hover:border-red-700"
             >
-              <div className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                <TrendingDown className="h-5 w-5" />
-              </div>
+              <TrendingDown className="h-5 w-5" />
               Add Expense
             </Button>
           </div>

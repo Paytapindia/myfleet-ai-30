@@ -70,7 +70,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const isInsuranceActive = insuranceStatus === 'uploaded';
 
   return (
-    <Card className="w-full md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-card/95 border-border/50 shadow-lg hover:shadow-xl transition-all duration-500 rounded-3xl overflow-hidden">
+    <Card className="w-full md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-3xl overflow-hidden">
       {/* Apple-inspired Vehicle Header */}
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between">

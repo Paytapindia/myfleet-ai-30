@@ -77,8 +77,12 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="flex items-center justify-center mb-4">
-            <Truck className="h-8 w-8 text-primary mr-2" />
+          <div className="flex flex-col items-center justify-center mb-4">
+            <img 
+              src="/lovable-uploads/18787fac-b55f-4fd2-9e36-9b0a7dac93e4.png" 
+              alt="MyFleet Logo" 
+              className="w-16 h-16 mb-4"
+            />
             <h1 className="text-2xl font-bold">MyFleet</h1>
           </div>
           <p className="text-muted-foreground">Access your fleet management dashboard</p>

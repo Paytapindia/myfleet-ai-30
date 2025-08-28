@@ -221,11 +221,6 @@ const LoginPage = () => {
               )}
             </div>
 
-            <div className="bg-muted/50 p-3 rounded-lg border border-border/50">
-              <p className="text-xs text-muted-foreground text-center">
-                Note: Supabase handles email/password natively. No third-party auth required.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>

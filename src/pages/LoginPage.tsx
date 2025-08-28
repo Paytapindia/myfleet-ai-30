@@ -135,10 +135,12 @@ const LoginPage = () => {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center mr-3">
-              <Truck className="h-6 w-6 text-primary" />
-            </div>
+          <div className="flex flex-col items-center justify-center mb-4">
+            <img 
+              src="/lovable-uploads/18787fac-b55f-4fd2-9e36-9b0a7dac93e4.png" 
+              alt="MyFleet Logo" 
+              className="w-16 h-16 mb-4"
+            />
             <div>
               <h1 className="text-2xl font-bold text-foreground">MyFleet AI</h1>
               <p className="text-muted-foreground text-sm">Smart Fleet Management</p>

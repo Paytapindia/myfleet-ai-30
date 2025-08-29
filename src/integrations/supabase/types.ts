@@ -17,6 +17,7 @@ export type Database = {
       activity_logs: {
         Row: {
           action: string
+          admin_user_id: string | null
           created_at: string
           description: string | null
           entity_id: string | null
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          admin_user_id?: string | null
           created_at?: string
           description?: string | null
           entity_id?: string | null
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          admin_user_id?: string | null
           created_at?: string
           description?: string | null
           entity_id?: string | null
@@ -50,6 +53,50 @@ export type Database = {
           metadata?: Json | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          permissions: Json | null
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -269,6 +316,36 @@ export type Database = {
           },
         ]
       }
+      phone_verifications: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          id: number
+          is_verified: boolean | null
+          otp: string
+          phone_number: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          id?: never
+          is_verified?: boolean | null
+          otp: string
+          phone_number: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          id?: never
+          is_verified?: boolean | null
+          otp?: string
+          phone_number?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -311,6 +388,42 @@ export type Database = {
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      rc_verifications: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          request_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          vehicle_number: string
+          verification_data: Json | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          request_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vehicle_number: string
+          verification_data?: Json | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          request_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_number?: string
+          verification_data?: Json | null
         }
         Relationships: []
       }
@@ -379,6 +492,72 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string | null
+          customer_email: string | null
+          customer_phone: string | null
+          description: string
+          id: string
+          priority: string | null
+          resolved_at: string | null
+          status: string | null
+          subject: string
+          ticket_number: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          description: string
+          id?: string
+          priority?: string | null
+          resolved_at?: string | null
+          status?: string | null
+          subject: string
+          ticket_number?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          description?: string
+          id?: string
+          priority?: string | null
+          resolved_at?: string | null
+          status?: string | null
+          subject?: string
+          ticket_number?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }

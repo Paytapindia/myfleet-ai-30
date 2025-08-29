@@ -1,4 +1,6 @@
-// Vehicle API service for fetching vehicle details
+import { supabase } from "@/integrations/supabase/client";
+
+// Vehicle API service for fetching real RC verification data
 export interface VehicleApiResponse {
   number: string;
   model: string;
@@ -6,46 +8,83 @@ export interface VehicleApiResponse {
   year?: string;
   fuelType?: string;
   registrationDate?: string;
+  ownerName?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  registrationAuthority?: string;
+  fitnessExpiry?: string;
+  puccExpiry?: string;
+  insuranceExpiry?: string;
   success: boolean;
   error?: string;
+  cached?: boolean;
 }
 
 export const fetchVehicleDetails = async (vehicleNumber: string): Promise<VehicleApiResponse> => {
   try {
-    // For now, simulate API call with mock data
-    // In production, replace this with actual API endpoint
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+    // Get the current session
+    const { data: { session } } = await supabase.auth.getSession();
     
-    // Mock successful response
-    const mockResponse: VehicleApiResponse = {
-      number: vehicleNumber,
-      model: "Maruti Suzuki Swift",
-      make: "Maruti Suzuki",
-      year: "2021",
-      fuelType: "Petrol",
-      registrationDate: "2021-03-15",
-      success: true
+    if (!session) {
+      return {
+        number: vehicleNumber,
+        model: '',
+        success: false,
+        error: 'User not authenticated'
+      };
+    }
+
+    console.log(`Fetching RC verification for vehicle: ${vehicleNumber}`);
+
+    // Call our Supabase Edge Function for RC verification
+    const { data, error } = await supabase.functions.invoke('rc-verification', {
+      body: { vehicleNumber },
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      }
+    });
+
+    if (error) {
+      console.error('RC verification error:', error);
+      return {
+        number: vehicleNumber,
+        model: '',
+        success: false,
+        error: error.message || 'Failed to fetch vehicle details'
+      };
+    }
+
+    if (!data.success) {
+      return {
+        number: vehicleNumber,
+        model: '',
+        success: false,
+        error: data.error || 'Verification failed'
+      };
+    }
+
+    // Transform the API response to our interface
+    const vehicleData = data.data;
+    return {
+      number: vehicleData.number || vehicleNumber,
+      model: vehicleData.model || '',
+      make: vehicleData.make,
+      year: vehicleData.year,
+      fuelType: vehicleData.fuelType,
+      registrationDate: vehicleData.registrationDate,
+      ownerName: vehicleData.ownerName,
+      chassisNumber: vehicleData.chassisNumber,
+      engineNumber: vehicleData.engineNumber,
+      registrationAuthority: vehicleData.registrationAuthority,
+      fitnessExpiry: vehicleData.fitnessExpiry,
+      puccExpiry: vehicleData.puccExpiry,
+      insuranceExpiry: vehicleData.insuranceExpiry,
+      success: true,
+      cached: data.cached
     };
     
-    return mockResponse;
-    
-    // TODO: Replace with actual API call
-    // const response = await fetch(`${API_BASE_URL}/vehicle-details/${vehicleNumber}`, {
-    //   method: 'GET',
-    //   headers: {
-    //     'Authorization': `Bearer ${API_TOKEN}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    
-    // if (!response.ok) {
-    //   throw new Error(`API Error: ${response.status}`);
-    // }
-    
-    // const data = await response.json();
-    // return data;
-    
   } catch (error) {
+    console.error('Vehicle details fetch error:', error);
     return {
       number: vehicleNumber,
       model: '',

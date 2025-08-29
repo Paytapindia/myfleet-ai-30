@@ -6,6 +6,12 @@ verify_jwt = false
 [functions.msg91-verify-otp]
 verify_jwt = false
 
+[functions.rc-verification]
+verify_jwt = true
+
+[functions.rc-webhook]
+verify_jwt = false
+
 # Keep existing functions working with defaults
 [functions.cashfree-create-order]
 # Uses default verify_jwt (true). Change to false if you call it publicly from client.

@@ -121,90 +121,73 @@ serve(async (req) => {
       })
       .eq('id', newVerification.id)
 
-    // Make the API call to RC verification service
-    // Note: Replace this URL with the actual RC verification API endpoint
-    const apiResponse = await fetch('https://api.rcverification.com/v1/verify', {
+    // Make the API call to APICLUB RC info (synchronous)
+    const apiResponse = await fetch('https://prod.apiclub.in/api/v1/rc_info', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'Referer': 'docs.apiclub.in',
       },
-      body: JSON.stringify({
-        vehicle_number: vehicleNumber,
-        webhook_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/rc-webhook`
-      })
+      body: JSON.stringify({ rc_number: vehicleNumber })
     })
 
     if (!apiResponse.ok) {
-      console.error('RC API error:', apiResponse.status, await apiResponse.text())
-      
-      // For demo purposes, let's create mock successful data
-      const mockData = {
-        number: vehicleNumber,
-        model: "Maruti Suzuki Swift",
-        make: "Maruti Suzuki", 
-        year: "2021",
-        fuelType: "Petrol",
-        registrationDate: "2021-03-15",
-        ownerName: "John Doe",
-        chassisNumber: "MA3ERTGV5L6G12345",
-        engineNumber: "G12B1234567",
-        registrationAuthority: "DL-01",
-        fitnessExpiry: "2026-03-15",
-        puccExpiry: "2024-09-15",
-        insuranceExpiry: "2025-03-14"
+      const errText = await apiResponse.text()
+      console.error('APICLUB RC API error:', apiResponse.status, errText)
+
+      await supabaseClient
+        .from('rc_verifications')
+        .update({
+          status: 'failed',
+          error_message: `Upstream error ${apiResponse.status}: ${errText?.slice(0, 300)}`
+        })
+        .eq('id', newVerification.id)
+
+      return new Response(
+        JSON.stringify({ success: false, error: 'RC lookup failed. Please try again later.' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const raw = await apiResponse.json()
+    console.log('APICLUB RC API response received')
+
+    // Normalize APICLUB response to our app schema
+    const normalizeData = (api: any) => {
+      const src = api?.data ?? api ?? {}
+      return {
+        number: src.rc_number || src.registration_number || src.regn_no || vehicleNumber,
+        model: src.model || src.Model || '',
+        make: src.make || src.Make || '',
+        year: (src.mfg_year || src.year || src.manufacturing_year)?.toString() || (src.registration_date ? new Date(src.registration_date).getFullYear().toString() : undefined),
+        fuelType: src.fuel_type || src.fuel || '',
+        registrationDate: src.registration_date || src.regn_dt || '',
+        ownerName: src.owner_name || src.owner || '',
+        chassisNumber: src.chassis_number || src.chassis_no || src.chassisNo || '',
+        engineNumber: src.engine_number || src.engine_no || src.engineNo || '',
+        registrationAuthority: src.registering_authority || src.rto || src.registration_authority || '',
+        fitnessExpiry: src.fitness_upto || src.fitnessExpiry || '',
+        puccExpiry: src.pucc_upto || src.puc_valid_upto || src.puccExpiry || '',
+        insuranceExpiry: src.insurance_valid_upto || src.insuranceExpiry || '',
       }
-
-      await supabaseClient
-        .from('rc_verifications')
-        .update({
-          status: 'completed',
-          verification_data: mockData
-        })
-        .eq('id', newVerification.id)
-
-      console.log(`Mock verification completed for vehicle: ${vehicleNumber}`)
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: mockData,
-          message: 'Verification completed (demo mode)'
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
     }
 
-    const apiData = await apiResponse.json()
-    console.log('RC API response received:', apiData)
+    const normalized = normalizeData(raw)
 
-    // If the API returns immediate results, update the database
-    if (apiData.status === 'completed') {
-      await supabaseClient
-        .from('rc_verifications')
-        .update({
-          status: 'completed',
-          verification_data: apiData.data
-        })
-        .eq('id', newVerification.id)
+    await supabaseClient
+      .from('rc_verifications')
+      .update({
+        status: 'completed',
+        verification_data: normalized
+      })
+      .eq('id', newVerification.id)
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: apiData.data
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    console.log(`Verification completed for vehicle: ${vehicleNumber}`)
 
-    // If API is processing, return pending status
     return new Response(
-      JSON.stringify({
-        success: true,
-        status: 'processing',
-        message: 'Verification in progress. You will be notified when complete.',
-        verificationId: newVerification.id
-      }),
+      JSON.stringify({ success: true, data: normalized }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

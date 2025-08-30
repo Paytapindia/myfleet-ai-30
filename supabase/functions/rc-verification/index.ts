@@ -94,20 +94,20 @@ serve(async (req) => {
       )
     }
 
-    // Call the RC verification API
-    const apiKey = Deno.env.get('RC_VERIFICATION_API_KEY')
-    if (!apiKey) {
-      console.error('RC_VERIFICATION_API_KEY not found')
+    // Configure Pipedream proxy webhook (static IP egress)
+    const webhookUrl = Deno.env.get('PIPEDREAM_WEBHOOK_URL')
+    if (!webhookUrl) {
+      console.error('PIPEDREAM_WEBHOOK_URL not found')
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: 'API key not configured'
+          error_message: 'Proxy webhook not configured'
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ error: 'API configuration error' }),
+        JSON.stringify({ error: 'Proxy configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -121,38 +121,39 @@ serve(async (req) => {
       })
       .eq('id', newVerification.id)
 
-    // Make the API call to APICLUB RC info (synchronous)
-    const apiResponse = await fetch('https://prod.apiclub.in/api/v1/rc_info', {
+    // Make the API call via Pipedream webhook (synchronous)
+    const apiResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
-        accept: 'application/json',
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'Referer': 'docs.apiclub.in',
       },
-      body: JSON.stringify({ rc_number: vehicleNumber })
+      body: JSON.stringify({
+        vehicleNumber,
+        rc_number: vehicleNumber,
+        request_id: newVerification.id,
+      })
     })
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('APICLUB RC API error:', apiResponse.status, errText)
+      console.error('Proxy webhook error:', apiResponse.status, errText)
 
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: `Upstream error ${apiResponse.status}: ${errText?.slice(0, 300)}`
+          error_message: `Proxy error ${apiResponse.status}: ${errText?.slice(0, 300)}`
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ success: false, error: 'RC lookup failed. Please try again later.' }),
+        JSON.stringify({ success: false, error: 'RC lookup failed via proxy. Please try again later.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const raw = await apiResponse.json()
-    console.log('APICLUB RC API response received')
+    console.log('Proxy webhook response received')
 
     // Normalize APICLUB response to our app schema
     const normalizeData = (api: any) => {

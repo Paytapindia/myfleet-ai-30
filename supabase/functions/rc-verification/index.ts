@@ -94,20 +94,22 @@ serve(async (req) => {
       )
     }
 
-    // Configure Pipedream proxy webhook (static IP egress)
-    const webhookUrl = Deno.env.get('PIPEDREAM_WEBHOOK_URL')
-    if (!webhookUrl) {
-      console.error('PIPEDREAM_WEBHOOK_URL not found')
+    // Configure AWS Lambda API Gateway endpoint (static IP egress)
+    const lambdaUrl = Deno.env.get('AWS_LAMBDA_RC_URL')
+    const proxyToken = Deno.env.get('AWS_LAMBDA_PROXY_TOKEN')
+    
+    if (!lambdaUrl) {
+      console.error('AWS_LAMBDA_RC_URL not found')
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: 'Proxy webhook not configured'
+          error_message: 'AWS Lambda endpoint not configured'
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ error: 'Proxy configuration error' }),
+        JSON.stringify({ error: 'Lambda configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -121,12 +123,19 @@ serve(async (req) => {
       })
       .eq('id', newVerification.id)
 
-    // Make the API call via Pipedream webhook (synchronous)
-    const apiResponse = await fetch(webhookUrl, {
+    // Make the API call via AWS Lambda API Gateway (synchronous)
+    const requestHeaders: Record<string, string> = {
+      'content-type': 'application/json',
+    }
+    
+    // Add proxy token if configured
+    if (proxyToken) {
+      requestHeaders['x-proxy-token'] = proxyToken
+    }
+    
+    const apiResponse = await fetch(lambdaUrl, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
+      headers: requestHeaders,
       body: JSON.stringify({
         vehicleNumber,
         rc_number: vehicleNumber,
@@ -136,24 +145,24 @@ serve(async (req) => {
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('Proxy webhook error:', apiResponse.status, errText)
+      console.error('AWS Lambda API error:', apiResponse.status, errText)
 
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: `Proxy error ${apiResponse.status}: ${errText?.slice(0, 300)}`
+          error_message: `Lambda error ${apiResponse.status}: ${errText?.slice(0, 300)}`
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ success: false, error: 'RC lookup failed via proxy. Please try again later.' }),
+        JSON.stringify({ success: false, error: 'RC lookup failed via Lambda. Please try again later.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const raw = await apiResponse.json()
-    console.log('Proxy webhook response received')
+    console.log('AWS Lambda response received')
 
     // Normalize APICLUB response to our app schema
     const normalizeData = (api: any) => {

@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Car, Calendar, Fuel, MapPin, User, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
+import { fetchVehicleDetails as fetchRcDetails, VehicleApiResponse } from "@/services/vehicleApi";
 
 interface VehicleDetails {
   number: string;
@@ -24,25 +25,21 @@ interface VehicleDetailsModalProps {
   vehicleNumber: string;
 }
 
-// Dummy API function - will be replaced with real API
-const fetchVehicleDetails = async (vehicleNumber: string): Promise<VehicleDetails> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Dummy data based on vehicle number
+// Map API response to modal structure
+const mapApiToDetails = (api: VehicleApiResponse, vehicleNumber: string): VehicleDetails => {
   return {
-    number: vehicleNumber,
-    make: "Maruti Suzuki",
-    model: "Swift",
-    year: 2020,
-    fuelType: Math.random() > 0.5 ? 'Petrol' : 'Diesel',
-    registrationDate: "2020-03-15",
-    chassisNumber: "MA3ERLF2N00" + Math.floor(Math.random() * 100000),
-    engineNumber: "K12M" + Math.floor(Math.random() * 1000000),
-    ownerName: "John Doe",
-    registeredAddress: "123 Main Street, Bangalore, Karnataka 560001",
-    color: "White",
-    category: "M1 - Motor Car"
+    number: api.number || vehicleNumber,
+    make: api.make || "—",
+    model: api.model || "",
+    year: api.year ? parseInt(api.year, 10) : new Date().getFullYear(),
+    fuelType: (api.fuelType as any) || 'Petrol',
+    registrationDate: api.registrationDate || "",
+    chassisNumber: api.chassisNumber || "",
+    engineNumber: api.engineNumber || "",
+    ownerName: api.ownerName || "",
+    registeredAddress: "",
+    color: "",
+    category: "",
   };
 };
 
@@ -53,9 +50,16 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
   useEffect(() => {
     if (open && vehicleNumber) {
       setLoading(true);
-      fetchVehicleDetails(vehicleNumber)
-        .then(setVehicleDetails)
-        .finally(() => setLoading(false));
+      (async () => {
+        const api = await fetchRcDetails(vehicleNumber);
+        if (api.success) {
+          setVehicleDetails(mapApiToDetails(api, vehicleNumber));
+        } else {
+          setVehicleDetails(null);
+          console.error('Vehicle details error:', api.error);
+        }
+        setLoading(false);
+      })();
     }
   }, [open, vehicleNumber]);
 

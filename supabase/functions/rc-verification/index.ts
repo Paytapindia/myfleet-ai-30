@@ -123,12 +123,34 @@ serve(async (req) => {
     const requestHeaders: Record<string, string> = {
       'content-type': 'application/json',
     }
-    
-    // Add proxy token if configured
-    if (proxyToken) {
-      requestHeaders['x-proxy-token'] = proxyToken
+
+    // Optional API key support (if API Gateway is using API Keys)
+    const apiKey =
+      Deno.env.get('AWS_RC_API_KEY') ||
+      Deno.env.get('AWS_API_KEY')
+
+    // Add proxy token headers if configured
+    const hasProxyToken = Boolean(proxyToken)
+    if (hasProxyToken) {
+      // Backward-compatible custom header
+      requestHeaders['x-proxy-token'] = proxyToken as string
+      // Also send standard Authorization header
+      requestHeaders['Authorization'] = `Bearer ${proxyToken}`
     }
-    
+
+    if (apiKey) {
+      requestHeaders['x-api-key'] = apiKey
+    }
+
+    console.log('Calling AWS RC API', {
+      url: awsUrl,
+      headers_used: {
+        hasProxyToken,
+        usesAuthorization: hasProxyToken,
+        hasApiKey: Boolean(apiKey),
+      },
+    })
+
     const apiResponse = await fetch(awsUrl, {
       method: 'POST',
       headers: requestHeaders,
@@ -138,6 +160,8 @@ serve(async (req) => {
         request_id: newVerification.id,
       })
     })
+
+    console.log('AWS RC API response status:', apiResponse.status)
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()

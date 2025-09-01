@@ -46,152 +46,77 @@ serve(async (req) => {
 
     console.log(`RC verification requested for vehicle: ${vehicleNumber} by user: ${user.id}`)
 
-    // Check if we already have a recent verification for this vehicle
-    const { data: existingVerification } = await supabaseClient
-      .from('rc_verifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('vehicle_number', vehicleNumber)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    // If we have a recent completed verification (within 24 hours), return it
-    if (existingVerification) {
-      const verificationAge = Date.now() - new Date(existingVerification.created_at).getTime()
-      const oneDay = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-      
-      if (verificationAge < oneDay) {
-        console.log(`Returning cached verification for vehicle: ${vehicleNumber}`)
-        return new Response(
-          JSON.stringify({
-            success: true,
-            cached: true,
-            data: existingVerification.verification_data
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
-
-    // Create a new verification request
-    const { data: newVerification, error: insertError } = await supabaseClient
-      .from('rc_verifications')
-      .insert({
-        user_id: user.id,
-        vehicle_number: vehicleNumber,
-        status: 'pending'
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      console.error('Error creating verification request:', insertError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create verification request' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Configure AWS API Gateway endpoint
-    const awsUrl =
-      Deno.env.get('AWS_RC_API_URL') ||
-      Deno.env.get('AWS_LAMBDA_RC_URL')
-    const proxyToken =
-      Deno.env.get('AWS_RC_PROXY_TOKEN') ||
-      Deno.env.get('AWS_LAMBDA_PROXY_TOKEN') ||
-      Deno.env.get('SHARED_PROXY_TOKEN')
+    // Get AWS Gateway URL and proxy token from secrets
+    const awsUrl = Deno.env.get('AWS_GATEWAY_URL')
+    const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
+    const apiKey = Deno.env.get('AWS_RC_API_KEY')
     
     if (!awsUrl) {
-      console.error('AWS RC API URL not configured')
-      await supabaseClient
-        .from('rc_verifications')
-        .update({
-          status: 'failed',
-          error_message: 'AWS endpoint not configured'
-        })
-        .eq('id', newVerification.id)
-
+      console.error('AWS_GATEWAY_URL not configured')
       return new Response(
-        JSON.stringify({ error: 'Upstream configuration error' }),
+        JSON.stringify({ error: 'AWS Gateway not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Make the API call to AWS (synchronous)
+    // Build request headers for AWS API Gateway
     const requestHeaders: Record<string, string> = {
       'content-type': 'application/json',
     }
 
-    // Optional API key support (if API Gateway is using API Keys)
-    const apiKey =
-      Deno.env.get('AWS_RC_API_KEY') ||
-      Deno.env.get('AWS_API_KEY')
-
-    // Add proxy token headers if configured
-    const hasProxyToken = Boolean(proxyToken)
-    if (hasProxyToken) {
-      // Backward-compatible custom header
-      requestHeaders['x-proxy-token'] = proxyToken as string
-      // Also send standard Authorization header
-      requestHeaders['Authorization'] = `Bearer ${proxyToken}`
+    // Add authentication headers if configured
+    if (proxyToken) {
+      requestHeaders['x-proxy-token'] = proxyToken
     }
 
     if (apiKey) {
       requestHeaders['x-api-key'] = apiKey
     }
 
-    console.log('Calling AWS RC API', {
+    console.log('Calling AWS API Gateway', {
       url: awsUrl,
-      headers_used: {
-        hasProxyToken,
-        usesAuthorization: hasProxyToken,
-        hasApiKey: Boolean(apiKey),
-      },
+      vehicleNumber,
+      hasProxyToken: Boolean(proxyToken),
+      hasApiKey: Boolean(apiKey),
     })
 
+    // Call AWS API Gateway -> Lambda -> API Club
     const apiResponse = await fetch(awsUrl, {
       method: 'POST',
       headers: requestHeaders,
       body: JSON.stringify({
         vehicleNumber,
         rc_number: vehicleNumber,
-        request_id: newVerification.id,
       })
     })
 
-    console.log('AWS RC API response status:', apiResponse.status)
+    console.log('AWS API Gateway response status:', apiResponse.status)
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('AWS API error:', apiResponse.status, errText)
-
-      await supabaseClient
-        .from('rc_verifications')
-        .update({
-          status: 'failed',
-          error_message: `AWS error ${apiResponse.status}: ${errText?.slice(0, 300)}`
-        })
-        .eq('id', newVerification.id)
+      console.error('AWS API Gateway error:', apiResponse.status, errText)
 
       return new Response(
-        JSON.stringify({ success: false, error: 'RC lookup failed via AWS. Please try again later.' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'RC verification failed',
+          details: `Gateway error ${apiResponse.status}` 
+        }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const raw = await apiResponse.json()
-    console.log('AWS RC API response received')
+    console.log('AWS API Gateway response received', { success: raw.success })
 
-    // Normalize APICLUB response to our app schema
+    // Re-normalize AWS response for UI compatibility
     const normalizeData = (api: any) => {
       const src = api?.data ?? api ?? {}
       return {
         number: src.rc_number || src.registration_number || src.regn_no || vehicleNumber,
         model: src.model || src.Model || '',
         make: src.make || src.Make || '',
-        year: (src.mfg_year || src.year || src.manufacturing_year)?.toString() || (src.registration_date ? new Date(src.registration_date).getFullYear().toString() : undefined),
+        year: (src.mfg_year || src.year || src.manufacturing_year)?.toString() || '',
         fuelType: src.fuel_type || src.fuel || '',
         registrationDate: src.registration_date || src.regn_dt || '',
         ownerName: src.owner_name || src.owner || '',
@@ -206,15 +131,7 @@ serve(async (req) => {
 
     const normalized = normalizeData(raw)
 
-    await supabaseClient
-      .from('rc_verifications')
-      .update({
-        status: 'completed',
-        verification_data: normalized
-      })
-      .eq('id', newVerification.id)
-
-    console.log(`Verification completed for vehicle: ${vehicleNumber}`)
+    console.log(`RC verification completed for vehicle: ${vehicleNumber}`)
 
     return new Response(
       JSON.stringify({ success: true, data: normalized }),
@@ -224,7 +141,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('RC verification error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

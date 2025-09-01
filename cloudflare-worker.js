@@ -1,21 +1,12 @@
 // Cloudflare Worker for RC Verification
 // Deploy this to: https://dash.cloudflare.com/workers
 
-// Configuration from environment variables
-const CORS_ALLOWED_ORIGINS = (CORS_ALLOWED_ORIGINS_ENV || "*")
-  .split(",")
-  .map((s) => s.trim());
-const SHARED_PROXY_TOKEN = SHARED_PROXY_TOKEN_ENV || "";
-const APICLUB_API_URL = APICLUB_API_URL_ENV || "https://golasgil.apiclub.in/api/v1/rc_info";
-const APICLUB_API_KEY = APICLUB_API_KEY_ENV || "";
-const UPSTREAM_TIMEOUT_MS = parseInt(UPSTREAM_TIMEOUT_MS_ENV || "10000");
-
 // Helper functions
-const buildCorsHeaders = (origin) => {
+const buildCorsHeaders = (origin, allowedOrigins) => {
   const allowOrigin =
-    CORS_ALLOWED_ORIGINS.includes("*") || CORS_ALLOWED_ORIGINS.includes(origin)
+    allowedOrigins.includes("*") || allowedOrigins.includes(origin)
       ? origin || "*"
-      : CORS_ALLOWED_ORIGINS[0] || "*";
+      : allowedOrigins[0] || "*";
 
   return {
     "Access-Control-Allow-Origin": allowOrigin,
@@ -25,18 +16,18 @@ const buildCorsHeaders = (origin) => {
   };
 };
 
-const ok = (origin, data, statusCode = 200) => {
+const ok = (origin, allowedOrigins, data, statusCode = 200) => {
   return new Response(JSON.stringify(data), {
     status: statusCode,
     headers: {
       "Content-Type": "application/json",
-      ...buildCorsHeaders(origin),
+      ...buildCorsHeaders(origin, allowedOrigins),
     },
   });
 };
 
-const err = (origin, message, statusCode = 400) =>
-  ok(origin, { success: false, error: message }, statusCode);
+const err = (origin, allowedOrigins, message, statusCode = 400) =>
+  ok(origin, allowedOrigins, { success: false, error: message }, statusCode);
 
 // Normalization for APICLUB-like responses
 const normalizeRc = (raw) => {
@@ -85,12 +76,14 @@ const normalizeRc = (raw) => {
 
 export default {
   async fetch(request, env, ctx) {
-    // Get environment variables from Cloudflare
-    const CORS_ALLOWED_ORIGINS_ENV = env.CORS_ALLOWED_ORIGINS;
-    const SHARED_PROXY_TOKEN_ENV = env.SHARED_PROXY_TOKEN;
-    const APICLUB_API_URL_ENV = env.APICLUB_API_URL;
-    const APICLUB_API_KEY_ENV = env.APICLUB_API_KEY;
-    const UPSTREAM_TIMEOUT_MS_ENV = env.UPSTREAM_TIMEOUT_MS;
+    // Read environment variables inside fetch function
+    const CORS_ALLOWED_ORIGINS = (env.CORS_ALLOWED_ORIGINS || "*")
+      .split(",")
+      .map((s) => s.trim());
+    const SHARED_PROXY_TOKEN = env.SHARED_PROXY_TOKEN || "";
+    const APICLUB_API_URL = env.APICLUB_API_URL || "https://golasgil.apiclub.in/api/v1/rc_info";
+    const APICLUB_API_KEY = env.APICLUB_API_KEY || "";
+    const UPSTREAM_TIMEOUT_MS = parseInt(env.UPSTREAM_TIMEOUT_MS || "10000");
 
     const origin = request.headers.get("origin") || "*";
 
@@ -98,27 +91,27 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
-        headers: buildCorsHeaders(origin),
+        headers: buildCorsHeaders(origin, CORS_ALLOWED_ORIGINS),
       });
     }
 
     // Validate method
     if (!["GET", "POST"].includes(request.method)) {
-      return err(origin, "Method not allowed", 405);
+      return err(origin, CORS_ALLOWED_ORIGINS, "Method not allowed", 405);
     }
 
     // Optional shared proxy token validation
-    if (SHARED_PROXY_TOKEN_ENV) {
+    if (SHARED_PROXY_TOKEN) {
       const token = request.headers.get("x-proxy-token") || 
                    request.headers.get("X-Proxy-Token");
-      if (!token || token !== SHARED_PROXY_TOKEN_ENV) {
-        return err(origin, "Unauthorized: invalid proxy token", 401);
+      if (!token || token !== SHARED_PROXY_TOKEN) {
+        return err(origin, CORS_ALLOWED_ORIGINS, "Unauthorized: invalid proxy token", 401);
       }
     }
 
     // Validate API key configuration
-    if (!APICLUB_API_KEY_ENV) {
-      return err(origin, "Server not configured: missing APICLUB_API_KEY", 500);
+    if (!APICLUB_API_KEY) {
+      return err(origin, CORS_ALLOWED_ORIGINS, "Server not configured: missing APICLUB_API_KEY", 500);
     }
 
     // Parse vehicle number from request
@@ -143,22 +136,22 @@ export default {
     }
 
     if (!vehicleNumber) {
-      return err(origin, "vehicleNumber (or rc_number) is required", 422);
+      return err(origin, CORS_ALLOWED_ORIGINS, "vehicleNumber (or rc_number) is required", 422);
     }
 
     // Call upstream API with timeout
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS || 10000);
+      const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
       const headers = {
         "content-type": "application/json",
-        "x-api-key": APICLUB_API_KEY_ENV,
+        "x-api-key": APICLUB_API_KEY,
         // If your provider needs Bearer instead, uncomment next line and remove x-api-key
-        // "Authorization": `Bearer ${APICLUB_API_KEY_ENV}`,
+        // "Authorization": `Bearer ${APICLUB_API_KEY}`,
       };
 
-      const upstreamRes = await fetch(APICLUB_API_URL_ENV || "https://golasgil.apiclub.in/api/v1/rc_info", {
+      const upstreamRes = await fetch(APICLUB_API_URL, {
         method: "POST",
         headers,
         body: JSON.stringify({ rc_number: vehicleNumber }),
@@ -174,6 +167,7 @@ export default {
         console.error("Upstream error:", upstreamRes.status, text?.slice(0, 500));
         return err(
           origin,
+          CORS_ALLOWED_ORIGINS,
           `RC lookup failed (${upstreamRes.status}). Please try again later.`,
           502
         );
@@ -181,14 +175,15 @@ export default {
 
       const data = normalizeRc(json);
 
-      return ok(origin, { success: true, data });
+      return ok(origin, CORS_ALLOWED_ORIGINS, { success: true, data });
     } catch (e) {
       const isAbort = e?.name === "AbortError";
       console.error("Upstream exception:", e);
       return err(
         origin,
+        CORS_ALLOWED_ORIGINS,
         isAbort
-          ? `RC lookup timed out after ${UPSTREAM_TIMEOUT_MS || 10000}ms`
+          ? `RC lookup timed out after ${UPSTREAM_TIMEOUT_MS}ms`
           : "Unexpected server error",
         504
       );

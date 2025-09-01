@@ -46,20 +46,19 @@ serve(async (req) => {
 
     console.log(`RC verification requested for vehicle: ${vehicleNumber} by user: ${user.id}`)
 
-    // Get AWS Gateway URL and proxy token from secrets
-    const awsUrl = Deno.env.get('AWS_GATEWAY_URL')
+    // Get Pipedream webhook URL and proxy token from secrets
+    const pipedreamUrl = Deno.env.get('PIPEDREAM_WEBHOOK_URL')
     const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
-    const apiKey = Deno.env.get('AWS_RC_API_KEY')
     
-    if (!awsUrl) {
-      console.error('AWS_GATEWAY_URL not configured')
+    if (!pipedreamUrl) {
+      console.error('PIPEDREAM_WEBHOOK_URL not configured')
       return new Response(
-        JSON.stringify({ error: 'AWS Gateway not configured' }),
+        JSON.stringify({ error: 'Pipedream webhook not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Build request headers for AWS API Gateway
+    // Build request headers for Pipedream webhook
     const requestHeaders: Record<string, string> = {
       'content-type': 'application/json',
     }
@@ -69,19 +68,14 @@ serve(async (req) => {
       requestHeaders['x-proxy-token'] = proxyToken
     }
 
-    if (apiKey) {
-      requestHeaders['x-api-key'] = apiKey
-    }
-
-    console.log('Calling AWS API Gateway', {
-      url: awsUrl,
+    console.log('Calling Pipedream webhook', {
+      url: pipedreamUrl,
       vehicleNumber,
       hasProxyToken: Boolean(proxyToken),
-      hasApiKey: Boolean(apiKey),
     })
 
-    // Call AWS API Gateway -> Lambda -> API Club
-    const apiResponse = await fetch(awsUrl, {
+    // Call Pipedream webhook -> AWS Lambda -> API Club
+    const apiResponse = await fetch(pipedreamUrl, {
       method: 'POST',
       headers: requestHeaders,
       body: JSON.stringify({
@@ -90,24 +84,24 @@ serve(async (req) => {
       })
     })
 
-    console.log('AWS API Gateway response status:', apiResponse.status)
+    console.log('Pipedream webhook response status:', apiResponse.status)
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('AWS API Gateway error:', apiResponse.status, errText)
+      console.error('Pipedream webhook error:', apiResponse.status, errText)
 
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'RC verification failed',
-          details: `Gateway error ${apiResponse.status}` 
+          details: `Webhook error ${apiResponse.status}` 
         }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const raw = await apiResponse.json()
-    console.log('AWS API Gateway response received', { success: raw.success })
+    console.log('Pipedream webhook response received', { success: raw.success })
 
     // Re-normalize AWS response for UI compatibility
     const normalizeData = (api: any) => {

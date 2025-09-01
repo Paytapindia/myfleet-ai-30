@@ -94,22 +94,22 @@ serve(async (req) => {
       )
     }
 
-    // Configure AWS Lambda API Gateway endpoint (static IP egress)
-    const lambdaUrl = Deno.env.get('AWS_LAMBDA_RC_URL')
-    const proxyToken = Deno.env.get('AWS_LAMBDA_PROXY_TOKEN')
+    // Configure Cloudflare Worker endpoint
+    const workerUrl = Deno.env.get('CLOUDFLARE_WORKER_RC_URL')
+    const proxyToken = Deno.env.get('CLOUDFLARE_WORKER_PROXY_TOKEN')
     
-    if (!lambdaUrl) {
-      console.error('AWS_LAMBDA_RC_URL not found')
+    if (!workerUrl) {
+      console.error('CLOUDFLARE_WORKER_RC_URL not found')
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: 'AWS Lambda endpoint not configured'
+          error_message: 'Cloudflare Worker endpoint not configured'
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ error: 'Lambda configuration error' }),
+        JSON.stringify({ error: 'Worker configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -123,7 +123,7 @@ serve(async (req) => {
       })
       .eq('id', newVerification.id)
 
-    // Make the API call via AWS Lambda API Gateway (synchronous)
+    // Make the API call via Cloudflare Worker (synchronous)
     const requestHeaders: Record<string, string> = {
       'content-type': 'application/json',
     }
@@ -133,7 +133,7 @@ serve(async (req) => {
       requestHeaders['x-proxy-token'] = proxyToken
     }
     
-    const apiResponse = await fetch(lambdaUrl, {
+    const apiResponse = await fetch(workerUrl, {
       method: 'POST',
       headers: requestHeaders,
       body: JSON.stringify({
@@ -145,24 +145,24 @@ serve(async (req) => {
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('AWS Lambda API error:', apiResponse.status, errText)
+      console.error('Cloudflare Worker API error:', apiResponse.status, errText)
 
       await supabaseClient
         .from('rc_verifications')
         .update({
           status: 'failed',
-          error_message: `Lambda error ${apiResponse.status}: ${errText?.slice(0, 300)}`
+          error_message: `Worker error ${apiResponse.status}: ${errText?.slice(0, 300)}`
         })
         .eq('id', newVerification.id)
 
       return new Response(
-        JSON.stringify({ success: false, error: 'RC lookup failed via Lambda. Please try again later.' }),
+        JSON.stringify({ success: false, error: 'RC lookup failed via Worker. Please try again later.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     const raw = await apiResponse.json()
-    console.log('AWS Lambda response received')
+    console.log('Cloudflare Worker response received')
 
     // Normalize APICLUB response to our app schema
     const normalizeData = (api: any) => {

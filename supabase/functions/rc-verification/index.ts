@@ -100,8 +100,41 @@ serve(async (req) => {
       )
     }
 
-    const raw = await apiResponse.json()
-    console.log('Pipedream webhook response received', { success: raw.success })
+    // Safely parse response (handle non-JSON bodies)
+    const contentType = apiResponse.headers.get('content-type') ?? ''
+    let raw: any = null
+    let bodyText: string | null = null
+
+    if (contentType.includes('application/json')) {
+      try {
+        raw = await apiResponse.json()
+      } catch (e) {
+        console.error('Failed to parse JSON response from webhook', e)
+      }
+    } else {
+      bodyText = await apiResponse.text()
+      // Attempt to extract JSON object from text (in case upstream wrapped it)
+      const match = bodyText.match(/\{[\s\S]*\}/)
+      if (match) {
+        try { raw = JSON.parse(match[0]) } catch (e) {
+          console.error('Failed to parse JSON from text body', e)
+        }
+      }
+    }
+
+    if (!raw) {
+      console.error('Invalid response format from webhook', { contentType, preview: bodyText?.slice(0, 200) })
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid response format from verification service',
+          details: (bodyText && bodyText.slice(0, 200)) || 'Empty body' 
+        }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Pipedream webhook response received', { success: (raw as any)?.success })
 
     // Re-normalize AWS response for UI compatibility
     const normalizeData = (api: any) => {

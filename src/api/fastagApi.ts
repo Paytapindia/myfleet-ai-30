@@ -7,6 +7,7 @@ export interface FastagData {
   status?: string;
   lastTransactionDate?: string;
   vehicleNumber: string;
+  bankName?: string;
 }
 
 export interface FastagVerificationResponse {

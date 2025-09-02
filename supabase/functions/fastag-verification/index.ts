@@ -171,10 +171,11 @@ serve(async (req) => {
     const fastagData = {
       balance: lambdaData.balance || 0,
       linked: lambdaData.linked || false,
-      tagId: lambdaData.tagId || null,
-      status: lambdaData.status || 'unknown',
+      tagId: lambdaData.tag_id || lambdaData.response?.tag_id || null,
+      status: lambdaData.tag_status || lambdaData.response?.tag_status || 'unknown',
       lastTransactionDate: lambdaData.lastTransactionDate || null,
       vehicleNumber: vehicleNumber,
+      bankName: lambdaData.bank_name || lambdaData.response?.bank_name || null,
       ...lambdaData
     }
 

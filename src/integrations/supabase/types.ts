@@ -316,6 +316,45 @@ export type Database = {
           },
         ]
       }
+      fastag_verifications: {
+        Row: {
+          api_cost_saved: boolean | null
+          created_at: string
+          error_message: string | null
+          id: string
+          is_cached: boolean | null
+          status: string
+          updated_at: string
+          user_id: string
+          vehicle_number: string
+          verification_data: Json | null
+        }
+        Insert: {
+          api_cost_saved?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_cached?: boolean | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vehicle_number: string
+          verification_data?: Json | null
+        }
+        Update: {
+          api_cost_saved?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_cached?: boolean | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_number?: string
+          verification_data?: Json | null
+        }
+        Relationships: []
+      }
       phone_verifications: {
         Row: {
           attempts: number | null
@@ -809,6 +848,7 @@ export type Database = {
           created_at: string
           engine_number: string | null
           fasttag_balance: number | null
+          fasttag_last_synced_at: string | null
           fasttag_linked: boolean | null
           financer: string | null
           fuel_type: string | null
@@ -845,6 +885,7 @@ export type Database = {
           created_at?: string
           engine_number?: string | null
           fasttag_balance?: number | null
+          fasttag_last_synced_at?: string | null
           fasttag_linked?: boolean | null
           financer?: string | null
           fuel_type?: string | null
@@ -881,6 +922,7 @@ export type Database = {
           created_at?: string
           engine_number?: string | null
           fasttag_balance?: number | null
+          fasttag_last_synced_at?: string | null
           fasttag_linked?: boolean | null
           financer?: string | null
           fuel_type?: string | null

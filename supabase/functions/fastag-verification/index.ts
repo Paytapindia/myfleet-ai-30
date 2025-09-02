@@ -131,6 +131,7 @@ serve(async (req) => {
     }
 
     console.log('Calling AWS Lambda for FASTag verification:', vehicleNumber)
+    console.log('Using AWS Gateway URL:', awsGatewayUrl)
 
     // Call the AWS Lambda function via API Gateway with service parameter
     const lambdaResponse = await fetch(awsGatewayUrl, {
@@ -151,25 +152,29 @@ serve(async (req) => {
     console.log('Lambda response status:', lambdaResponse.status)
     console.log('Lambda response data:', lambdaData)
 
-    if (!lambdaResponse.ok) {
-      console.error('Lambda function failed:', lambdaData)
+    const lambdaIndicatesError = (lambdaData && (lambdaData.status === 'error' || (typeof lambdaData.code === 'number' && lambdaData.code >= 400)))
+
+    if (!lambdaResponse.ok || lambdaIndicatesError) {
+      console.error('Lambda function reported failure:', lambdaData)
+      const message = (lambdaData && (lambdaData.message || lambdaData.error)) || 'FASTag verification failed'
+      const details = (lambdaData && (lambdaData.details || lambdaData.upstream?.bodyPreview)) || undefined
       
       // Update verification record with error
       await supabase
         .from('fastag_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData.error || 'FASTag verification failed',
+          error_message: message,
           updated_at: new Date().toISOString()
         })
         .eq('id', verification.id)
 
       return new Response(
         JSON.stringify({ 
-          error: 'FASTag verification failed',
-          details: lambdaData.error || 'Unknown error'
+          error: message,
+          details
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

@@ -77,11 +77,15 @@ exports.handler = async (event) => {
       // ignore malformed JSON, will handle later
     }
 
-    // Accept multiple possible keys
-    const vehicleId = (payload.vehicleId || payload.rc_number || payload.registrationNumber || event?.queryStringParameters?.vehicleId || '').toString().trim()
+    // Accept multiple possible keys and normalize vehicleId
+    const vehicleIdRaw = (payload.vehicleId || payload.rc_number || payload.registrationNumber || event?.queryStringParameters?.vehicleId || '')
+      .toString()
+      .trim()
+    const vehicleId = vehicleIdRaw
+    const normalizedId = vehicleIdRaw.toUpperCase().replace(/[^A-Z0-9]/g, '')
     const service = payload.service || 'rc' // Default to RC service for backward compatibility
 
-    if (!vehicleId) {
+    if (!vehicleIdRaw) {
       const errBody = { code: 400, status: 'error', message: 'vehicleId is required', response: null }
       return FORCE_200 ? ok(errBody) : response(400, errBody)
     }
@@ -96,6 +100,7 @@ exports.handler = async (event) => {
 
     // Prepare upstream request
     const url = `${BASE_URL}${apiPath}`
+    console.log('[rc-info-proxy] service:', service, 'apiPath:', apiPath, 'url:', url, 'vehicleIdRaw:', vehicleId, 'normalizedId:', normalizedId)
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
@@ -110,7 +115,7 @@ exports.handler = async (event) => {
           // Provide a referer if required by APIClub docs/examples
           'Referer': 'docs.apiclub.in'
         },
-        body: JSON.stringify({ vehicleId }),
+        body: JSON.stringify({ vehicleId: normalizedId }),
         signal: controller.signal
       })
     } finally {

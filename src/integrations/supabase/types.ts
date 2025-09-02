@@ -355,6 +355,7 @@ export type Database = {
           id: string
           is_onboarded: boolean
           pan_number: string | null
+          phone: string | null
           phone_verified: boolean
           subscribed: boolean
           subscription_end: string | null
@@ -370,6 +371,7 @@ export type Database = {
           id?: string
           is_onboarded?: boolean
           pan_number?: string | null
+          phone?: string | null
           phone_verified?: boolean
           subscribed?: boolean
           subscription_end?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           id?: string
           is_onboarded?: boolean
           pan_number?: string | null
+          phone?: string | null
           phone_verified?: boolean
           subscribed?: boolean
           subscription_end?: string | null

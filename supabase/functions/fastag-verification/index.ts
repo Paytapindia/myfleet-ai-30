@@ -13,14 +13,23 @@ serve(async (req) => {
   }
 
   try {
+    // Get the user token from the request and bind it to the Supabase client for RLS
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.replace('Bearer ', '')
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader
+          }
+        }
+      }
     )
 
-    // Get the user from the request
-    const authHeader = req.headers.get('Authorization')!
-    const token = authHeader.replace('Bearer ', '')
+    // Resolve the user for logic/validation
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
     if (authError || !user) {

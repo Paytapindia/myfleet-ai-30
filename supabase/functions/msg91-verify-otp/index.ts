@@ -45,7 +45,21 @@ serve(async (req) => {
       });
     }
 
-    const qp = new URLSearchParams({ mobile, otp });
+    // Normalize to E.164 without plus, defaulting to India (91)
+    const rawMobile = String(mobile).trim();
+    const digits = rawMobile.replace(/[^\d]/g, "");
+    let mobileE164 = digits.startsWith("91")
+      ? digits
+      : (digits.length === 10 ? `91${digits}` : digits);
+
+    if (!/^\d{12,15}$/.test(mobileE164) || !mobileE164.startsWith("91")) {
+      return new Response(JSON.stringify({ error: "Invalid 'mobile'. Use country code, e.g., 919900010964" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const qp = new URLSearchParams({ mobile: mobileE164, otp });
     const url = `https://control.msg91.com/api/v5/otp/verify?${qp.toString()}`;
 
     console.log("MSG91 Verify OTP request:", { urlMasked: url.replace(otp, "******") });
@@ -70,6 +84,7 @@ serve(async (req) => {
     // MSG91 may return fields like `type: 'success'` or codes/messages
     const success = (data?.type?.toLowerCase?.() === "success") || data?.message?.toLowerCase?.().includes("success");
 
+    console.log("MSG91 Verify OTP response:", { status: res.status, data });
     return new Response(JSON.stringify({ success, data }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },

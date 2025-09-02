@@ -142,6 +142,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         vehicleId: vehicleNumber,
+        type: 'fastag',
         service: 'fastag'
       })
     })

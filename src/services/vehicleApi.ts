@@ -80,7 +80,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string): Promise<Vehicl
       puccExpiry: vehicleData.puccExpiry,
       insuranceExpiry: vehicleData.insuranceExpiry,
       success: true,
-      cached: data.cached
+      cached: data.cached || false
     };
     
   } catch (error) {

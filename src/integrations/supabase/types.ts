@@ -393,9 +393,11 @@ export type Database = {
       }
       rc_verifications: {
         Row: {
+          api_cost_saved: boolean | null
           created_at: string
           error_message: string | null
           id: string
+          is_cached: boolean | null
           request_id: string | null
           status: string
           updated_at: string
@@ -404,9 +406,11 @@ export type Database = {
           verification_data: Json | null
         }
         Insert: {
+          api_cost_saved?: boolean | null
           created_at?: string
           error_message?: string | null
           id?: string
+          is_cached?: boolean | null
           request_id?: string | null
           status?: string
           updated_at?: string
@@ -415,9 +419,11 @@ export type Database = {
           verification_data?: Json | null
         }
         Update: {
+          api_cost_saved?: boolean | null
           created_at?: string
           error_message?: string | null
           id?: string
+          is_cached?: boolean | null
           request_id?: string | null
           status?: string
           updated_at?: string
@@ -792,22 +798,33 @@ export type Database = {
       vehicles: {
         Row: {
           challans_count: number | null
+          chassis_number: string | null
           color: string | null
           created_at: string
+          engine_number: string | null
           fasttag_balance: number | null
           fasttag_linked: boolean | null
+          financer: string | null
+          fuel_type: string | null
           gps_device_id: string | null
           gps_linked: boolean | null
           id: string
           insurance_expiry: string | null
+          is_financed: boolean | null
           last_service_date: string | null
           make: string | null
           model: string | null
           next_service_due: string | null
           number: string
           odometer_reading: number | null
+          owner_name: string | null
           pay_tap_balance: number | null
+          permanent_address: string | null
           pollution_expiry: string | null
+          rc_verification_status: string | null
+          rc_verified_at: string | null
+          registration_authority: string | null
+          registration_date: string | null
           registration_expiry: string | null
           status: Database["public"]["Enums"]["vehicle_status"]
           updated_at: string
@@ -817,22 +834,33 @@ export type Database = {
         }
         Insert: {
           challans_count?: number | null
+          chassis_number?: string | null
           color?: string | null
           created_at?: string
+          engine_number?: string | null
           fasttag_balance?: number | null
           fasttag_linked?: boolean | null
+          financer?: string | null
+          fuel_type?: string | null
           gps_device_id?: string | null
           gps_linked?: boolean | null
           id?: string
           insurance_expiry?: string | null
+          is_financed?: boolean | null
           last_service_date?: string | null
           make?: string | null
           model?: string | null
           next_service_due?: string | null
           number: string
           odometer_reading?: number | null
+          owner_name?: string | null
           pay_tap_balance?: number | null
+          permanent_address?: string | null
           pollution_expiry?: string | null
+          rc_verification_status?: string | null
+          rc_verified_at?: string | null
+          registration_authority?: string | null
+          registration_date?: string | null
           registration_expiry?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           updated_at?: string
@@ -842,22 +870,33 @@ export type Database = {
         }
         Update: {
           challans_count?: number | null
+          chassis_number?: string | null
           color?: string | null
           created_at?: string
+          engine_number?: string | null
           fasttag_balance?: number | null
           fasttag_linked?: boolean | null
+          financer?: string | null
+          fuel_type?: string | null
           gps_device_id?: string | null
           gps_linked?: boolean | null
           id?: string
           insurance_expiry?: string | null
+          is_financed?: boolean | null
           last_service_date?: string | null
           make?: string | null
           model?: string | null
           next_service_due?: string | null
           number?: string
           odometer_reading?: number | null
+          owner_name?: string | null
           pay_tap_balance?: number | null
+          permanent_address?: string | null
           pollution_expiry?: string | null
+          rc_verification_status?: string | null
+          rc_verified_at?: string | null
+          registration_authority?: string | null
+          registration_date?: string | null
           registration_expiry?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           updated_at?: string

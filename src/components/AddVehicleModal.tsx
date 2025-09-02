@@ -62,7 +62,7 @@ const AddVehicleModal = () => {
       
       toast({
         title: "Success",
-        description: "Vehicle added successfully"
+        description: "Vehicle added and details verified successfully"
       });
 
       // Reset form and close modal

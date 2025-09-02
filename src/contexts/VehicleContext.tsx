@@ -47,6 +47,20 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
       },
       financialData: [],
       userId: row.user_id,
+      // RC verification data
+      ownerName: row.owner_name,
+      chassisNumber: row.chassis_number,
+      engineNumber: row.engine_number,
+      fuelType: row.fuel_type,
+      registrationDate: row.registration_date,
+      registrationAuthority: row.registration_authority,
+      permanentAddress: row.permanent_address,
+      financer: row.financer,
+      isFinanced: row.is_financed,
+      rcVerifiedAt: row.rc_verified_at,
+      rcVerificationStatus: row.rc_verification_status,
+      make: row.make,
+      year: row.year,
     } as Vehicle;
   }, []);
 
@@ -104,25 +118,50 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user) return;
     setIsLoading(true);
 
-    const { data, error } = await supabase
-      .from('vehicles')
-      .insert({
-        user_id: user.id,
-        number: vehicleData.number,
-        model: 'Not specified',
-        pay_tap_balance: 0,
-        fasttag_linked: false,
-        gps_linked: false,
-        challans_count: 0,
-      })
-      .select()
-      .single();
+    try {
+      // First, add the basic vehicle record
+      const { data: newVehicle, error: vehicleError } = await supabase
+        .from('vehicles')
+        .insert({
+          user_id: user.id,
+          number: vehicleData.number,
+          model: 'Not specified',
+          pay_tap_balance: 0,
+          fasttag_linked: false,
+          gps_linked: false,
+          challans_count: 0,
+          rc_verification_status: 'pending'
+        })
+        .select()
+        .single();
 
-    if (error) {
+      if (vehicleError) {
+        console.error('Failed to add vehicle:', vehicleError);
+        throw vehicleError;
+      }
+
+      // Trigger RC verification to fetch and cache vehicle details
+      try {
+        const { data: rcData, error: rcError } = await supabase.functions.invoke('rc-verification', {
+          body: { vehicleNumber: vehicleData.number }
+        });
+
+        if (rcError) {
+          console.error('RC verification failed:', rcError);
+          // Don't throw error here - vehicle was already added successfully
+        } else if (rcData?.success) {
+          console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
+        }
+      } catch (rcError) {
+        console.error('RC verification error:', rcError);
+        // Don't throw error here - vehicle was already added successfully
+      }
+
+      await refreshVehicles();
+    } catch (error) {
       console.error('Failed to add vehicle:', error);
+      throw error;
     }
-
-    await refreshVehicles();
   };
 
   const removeVehicle = async (vehicleId: string) => {

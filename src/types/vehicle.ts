@@ -22,6 +22,20 @@ export interface Vehicle {
   };
   financialData: FinancialData[];
   userId: string;
+  // RC verification data
+  ownerName?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  fuelType?: string;
+  registrationDate?: string;
+  registrationAuthority?: string;
+  permanentAddress?: string;
+  financer?: string;
+  isFinanced?: boolean;
+  rcVerifiedAt?: string;
+  rcVerificationStatus?: string;
+  make?: string;
+  year?: number;
 }
 
 export type PnLPeriod = 'today' | 'weekly' | 'monthly' | 'yearly';

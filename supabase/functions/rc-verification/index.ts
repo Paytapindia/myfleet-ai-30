@@ -46,6 +46,76 @@ serve(async (req) => {
 
     console.log(`RC verification requested for vehicle: ${vehicleNumber} by user: ${user.id}`)
 
+    // First, check if we have cached RC data for this vehicle
+    const { data: cachedVehicle, error: cacheError } = await supabaseClient
+      .from('vehicles')
+      .select('*')
+      .eq('number', vehicleNumber)
+      .eq('user_id', user.id)
+      .eq('rc_verification_status', 'verified')
+      .maybeSingle()
+
+    if (cacheError) {
+      console.error('Error checking cached vehicle data:', cacheError)
+    }
+
+    // If we have complete cached data, return it
+    if (cachedVehicle && cachedVehicle.owner_name && cachedVehicle.rc_verified_at) {
+      console.log(`Returning cached RC data for vehicle: ${vehicleNumber}`)
+      
+      // Log this as a cached verification to track cost savings
+      await supabaseClient.from('rc_verifications').insert({
+        user_id: user.id,
+        vehicle_number: vehicleNumber,
+        status: 'success',
+        verification_data: {
+          number: cachedVehicle.number,
+          model: cachedVehicle.model,
+          make: cachedVehicle.make,
+          year: cachedVehicle.year,
+          fuelType: cachedVehicle.fuel_type,
+          registrationDate: cachedVehicle.registration_date,
+          ownerName: cachedVehicle.owner_name,
+          chassisNumber: cachedVehicle.chassis_number,
+          engineNumber: cachedVehicle.engine_number,
+          registrationAuthority: cachedVehicle.registration_authority,
+          permanentAddress: cachedVehicle.permanent_address,
+          financer: cachedVehicle.financer,
+          isFinanced: cachedVehicle.is_financed
+        },
+        is_cached: true,
+        api_cost_saved: true
+      })
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          cached: true,
+          data: {
+            number: cachedVehicle.number,
+            model: cachedVehicle.model || '',
+            make: cachedVehicle.make,
+            year: cachedVehicle.year,
+            fuelType: cachedVehicle.fuel_type,
+            registrationDate: cachedVehicle.registration_date,
+            ownerName: cachedVehicle.owner_name,
+            chassisNumber: cachedVehicle.chassis_number,
+            engineNumber: cachedVehicle.engine_number,
+            registrationAuthority: cachedVehicle.registration_authority,
+            permanentAddress: cachedVehicle.permanent_address,
+            financer: cachedVehicle.financer,
+            isFinanced: cachedVehicle.is_financed,
+            insuranceExpiry: cachedVehicle.insurance_expiry,
+            puccExpiry: cachedVehicle.pollution_expiry,
+            fitnessExpiry: null // Not stored in our schema yet
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`No cached data found, calling APIClub for vehicle: ${vehicleNumber}`)
+
     // Get AWS API Gateway URL from secrets
     const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL')
     
@@ -167,10 +237,73 @@ serve(async (req) => {
 
     const normalized = normalizeData(raw)
 
+    // Store the fetched data in vehicles table for future caching
+    try {
+      // Check if vehicle already exists for this user
+      const { data: existingVehicle } = await supabaseClient
+        .from('vehicles')
+        .select('id')
+        .eq('number', vehicleNumber)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const vehicleData = {
+        owner_name: normalized.ownerName,
+        chassis_number: normalized.chassisNumber,
+        engine_number: normalized.engineNumber,
+        fuel_type: normalized.fuelType,
+        registration_date: normalized.registrationDate,
+        registration_authority: normalized.registrationAuthority,
+        permanent_address: (raw?.body?.response?.permanent_address || raw?.response?.permanent_address || ''),
+        financer: (raw?.body?.response?.financer || raw?.response?.financer || ''),
+        is_financed: (raw?.body?.response?.is_financed || raw?.response?.is_financed || false),
+        rc_verified_at: new Date().toISOString(),
+        rc_verification_status: 'verified',
+        model: normalized.model || 'Not specified',
+        make: normalized.make,
+        year: normalized.year ? parseInt(normalized.year) : null,
+        insurance_expiry: normalized.insuranceExpiry,
+        pollution_expiry: normalized.puccExpiry
+      }
+
+      if (existingVehicle) {
+        // Update existing vehicle with RC data
+        await supabaseClient
+          .from('vehicles')
+          .update(vehicleData)
+          .eq('id', existingVehicle.id)
+      } else {
+        // Create new vehicle with RC data
+        await supabaseClient
+          .from('vehicles')
+          .insert({
+            ...vehicleData,
+            user_id: user.id,
+            number: vehicleNumber,
+            status: 'active'
+          })
+      }
+
+      console.log(`Cached RC data for vehicle: ${vehicleNumber}`)
+    } catch (cacheError) {
+      console.error('Error caching vehicle RC data:', cacheError)
+      // Continue even if caching fails
+    }
+
+    // Store verification record
+    await supabaseClient.from('rc_verifications').insert({
+      user_id: user.id,
+      vehicle_number: vehicleNumber,
+      status: 'success',
+      verification_data: normalized,
+      is_cached: false,
+      api_cost_saved: false
+    })
+
     console.log(`RC verification completed for vehicle: ${vehicleNumber}`)
 
     return new Response(
-      JSON.stringify({ success: true, data: normalized }),
+      JSON.stringify({ success: true, cached: false, data: normalized }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

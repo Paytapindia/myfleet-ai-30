@@ -1,5 +1,6 @@
 import VehicleCard from "@/components/VehicleCard";
 import AddVehicleModal from "@/components/AddVehicleModal";
+import VehicleListTable from "@/components/VehicleListTable";
 import { useVehicles } from "@/contexts/VehicleContext";
 import { Plus } from "lucide-react";
 
@@ -74,6 +75,14 @@ const VehicleManagerPage = () => {
             )}
           </div>
           
+          {/* Vehicle List Table */}
+          {vehicles.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold text-foreground mb-4">Vehicle List</h3>
+              <VehicleListTable vehicles={vehicles} />
+            </div>
+          )}
+
           {vehicles.length > 0 && (
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <h3 className="text-sm font-medium text-foreground mb-2">Fleet Summary</h3>

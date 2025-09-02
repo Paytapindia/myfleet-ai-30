@@ -13,6 +13,7 @@ interface User {
   subscribed?: boolean;
   subscriptionTier?: string | null;
   subscriptionEnd?: string | null;
+  phoneVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -137,6 +138,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         subscribed: profile.subscribed || false,
         subscriptionTier: profile.subscription_tier || null,
         subscriptionEnd: profile.subscription_end || null,
+        phoneVerified: profile.phone_verified || false,
       };
 
       console.log('User profile loaded:', userData.email, userData.isOnboarded);

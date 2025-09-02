@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowLeft, Save, User } from "lucide-react";
+import { ArrowLeft, Save, User, Shield, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -25,6 +27,7 @@ const SettingsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -66,6 +69,11 @@ const SettingsPage = () => {
     }
   };
 
+  const handlePhoneVerificationSuccess = () => {
+    // Reload user profile to get updated phone verification status
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border px-4 py-3 shadow-sm">
@@ -99,17 +107,49 @@ const SettingsPage = () => {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-4">
-                  <div>
+                  <div className="space-y-3">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      value={`+91 ${user?.phone}`}
-                      disabled
-                      className="bg-muted"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Phone number cannot be changed
-                    </p>
+                    <div className="flex items-center space-x-3">
+                      <Input
+                        id="phone"
+                        value={`+91 ${user?.phone}`}
+                        disabled
+                        className="bg-muted flex-1"
+                      />
+                      <Badge 
+                        variant={user?.phoneVerified ? "default" : "secondary"}
+                        className="flex items-center space-x-1"
+                      >
+                        {user?.phoneVerified ? (
+                          <>
+                            <CheckCircle className="h-3 w-3" />
+                            <span>Verified</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Unverified</span>
+                          </>
+                        )}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Phone number cannot be changed
+                      </p>
+                      {!user?.phoneVerified && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowPhoneVerification(true)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Shield className="h-3 w-3" />
+                          <span>Verify Phone</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <FormField
@@ -181,6 +221,13 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
       </main>
+
+      <PhoneVerificationModal
+        isOpen={showPhoneVerification}
+        onClose={() => setShowPhoneVerification(false)}
+        phoneNumber={user?.phone || ""}
+        onVerificationSuccess={handlePhoneVerificationSuccess}
+      />
     </div>
   );
 };

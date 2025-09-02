@@ -8,6 +8,7 @@
 // - APICLUB_API_KEY        (required) Example: apclb_xxx
 // - APICLUB_BASE_URL       (optional) Default: https://uat.apiclub.in
 // - APICLUB_RC_PATH        (optional) Default: /api/v1/rc_info
+// - APICLUB_FASTAG_PATH    (optional) Default: /api/v1/fastag_info
 // - FORCE_STATUS_200       (optional) "true" to always return 200 regardless of upstream
 // - TIMEOUT_MS             (optional) default 25000
 // - PROXY_TOKEN            (optional) if set, require an 'x-proxy-token' header to match
@@ -46,6 +47,7 @@ exports.handler = async (event) => {
   const API_KEY = process.env.APICLUB_API_KEY
   const BASE_URL = process.env.APICLUB_BASE_URL || 'https://uat.apiclub.in'
   const RC_PATH = process.env.APICLUB_RC_PATH || '/api/v1/rc_info'
+  const FASTAG_PATH = process.env.APICLUB_FASTAG_PATH || '/api/v1/fastag_info'
 
   try {
     if (!API_KEY) {
@@ -77,14 +79,23 @@ exports.handler = async (event) => {
 
     // Accept multiple possible keys
     const vehicleId = (payload.vehicleId || payload.rc_number || payload.registrationNumber || event?.queryStringParameters?.vehicleId || '').toString().trim()
+    const service = payload.service || 'rc' // Default to RC service for backward compatibility
 
     if (!vehicleId) {
       const errBody = { code: 400, status: 'error', message: 'vehicleId is required', response: null }
       return FORCE_200 ? ok(errBody) : response(400, errBody)
     }
 
+    // Determine API path based on service type
+    let apiPath
+    if (service === 'fastag') {
+      apiPath = FASTAG_PATH
+    } else {
+      apiPath = RC_PATH // Default to RC
+    }
+
     // Prepare upstream request
-    const url = `${BASE_URL}${RC_PATH}`
+    const url = `${BASE_URL}${apiPath}`
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 

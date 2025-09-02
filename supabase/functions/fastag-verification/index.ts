@@ -113,12 +113,12 @@ serve(async (req) => {
       )
     }
 
-    // Get the AWS API Gateway URL from secrets
-    const awsGatewayUrl = Deno.env.get('AWS_FASTAG_API_GATEWAY_URL')
+    // Get the AWS API Gateway URL from secrets (reuse the same Lambda as RC verification)
+    const awsGatewayUrl = Deno.env.get('AWS_RC_API_GATEWAY_URL')
     const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
 
     if (!awsGatewayUrl) {
-      console.error('AWS_FASTAG_API_GATEWAY_URL not configured')
+      console.error('AWS_RC_API_GATEWAY_URL not configured')
       return new Response(
         JSON.stringify({ error: 'FASTag API not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -127,17 +127,17 @@ serve(async (req) => {
 
     console.log('Calling AWS Lambda for FASTag verification:', vehicleNumber)
 
-    // Call the AWS Lambda function via API Gateway
+    // Call the AWS Lambda function via API Gateway with service parameter
     const lambdaResponse = await fetch(awsGatewayUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-Api-Key': 'apclb_OQz1oon6DzEGExQJFuTpGi9qe53762e1',
-        ...(proxyToken && { 'Authorization': `Bearer ${proxyToken}` })
+        ...(proxyToken && { 'x-proxy-token': proxyToken })
       },
       body: JSON.stringify({
-        vehicleId: vehicleNumber
+        vehicleId: vehicleNumber,
+        service: 'fastag'
       })
     })
 
@@ -167,16 +167,16 @@ serve(async (req) => {
       )
     }
 
-    // Process successful response
+    // Process successful response - handle Lambda normalized format
+    const responseData = lambdaData.response || lambdaData
     const fastagData = {
-      balance: lambdaData.balance || 0,
-      linked: lambdaData.linked || false,
-      tagId: lambdaData.tag_id || lambdaData.response?.tag_id || null,
-      status: lambdaData.tag_status || lambdaData.response?.tag_status || 'unknown',
-      lastTransactionDate: lambdaData.lastTransactionDate || null,
+      balance: responseData.balance || 0,
+      linked: responseData.linked !== undefined ? responseData.linked : (responseData.tag_status === 'ACTIVE'),
+      tagId: responseData.tag_id || null,
+      status: responseData.tag_status || 'unknown',
+      lastTransactionDate: responseData.lastTransactionDate || null,
       vehicleNumber: vehicleNumber,
-      bankName: lambdaData.bank_name || lambdaData.response?.bank_name || null,
-      ...lambdaData
+      bankName: responseData.bank_name || null
     }
 
     // Update verification record with success

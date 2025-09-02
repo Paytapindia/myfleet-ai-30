@@ -28,6 +28,8 @@ import DriverModal from "./DriverModal";
 import { ServiceModal } from "./ServiceModal";
 import { ChallanModal } from "./ChallanModal";
 import { useDrivers } from "@/contexts/DriverContext";
+import { verifyFastag } from "@/api/fastagApi";
+import { useToast } from "@/hooks/use-toast";
 
 interface VehicleCardProps {
   vehicle: {
@@ -51,6 +53,7 @@ interface VehicleCardProps {
 
 const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const { getDriverById } = useDrivers();
+  const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAssignDriverModal, setShowAssignDriverModal] = useState(false);
   const [showVehicleDetailsModal, setShowVehicleDetailsModal] = useState(false);
@@ -60,6 +63,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showChallanModal, setShowChallanModal] = useState(false);
   const [gpsActive, setGpsActive] = useState(vehicle.gpsLinked);
+  const [fastagLoading, setFastagLoading] = useState(false);
 
   // Get actual driver name from DriverContext
   const actualDriver = vehicle.driver ? getDriverById(vehicle.driver.id) : null;
@@ -68,6 +72,37 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   // Get insurance status
   const insuranceStatus = vehicle.documents.insurance.status;
   const isInsuranceActive = insuranceStatus === 'uploaded';
+
+  const handleFastagClick = async () => {
+    setFastagLoading(true);
+    try {
+      const result = await verifyFastag(vehicle.number);
+      
+      if (result.success) {
+        toast({
+          title: "FASTag Details",
+          description: result.cached 
+            ? "Showing cached FASTag data (verified within 24h)" 
+            : "FASTag details fetched successfully"
+        });
+      } else {
+        toast({
+          title: "FASTag Error",
+          description: result.error || "Failed to fetch FASTag details",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Network error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setFastagLoading(false);
+      setShowFastagModal(true);
+    }
+  };
 
   return (
     <Card className="w-full sm:max-w-sm md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl overflow-hidden">
@@ -110,12 +145,12 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
           {/* FASTag */}
           <div 
             className="flex flex-col items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300 touch-target"
-            onClick={() => setShowFastagModal(true)}
+            onClick={handleFastagClick}
           >
             <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mb-1 sm:mb-2" strokeWidth={1.5} />
             <p className="text-xs text-muted-foreground font-medium mb-1 text-center">FASTag</p>
             <p className={`text-xs sm:text-sm font-bold ${vehicle.fastTagLinked ? 'text-green-600' : 'text-red-600'} text-center`}>
-              {vehicle.fastTagLinked ? 'Linked' : 'Not Linked'}
+              {fastagLoading ? 'Loading...' : (vehicle.fastTagLinked ? 'Linked' : 'Not Linked')}
             </p>
           </div>
 

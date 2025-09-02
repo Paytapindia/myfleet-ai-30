@@ -114,11 +114,16 @@ serve(async (req) => {
     }
 
     // Get the AWS API Gateway URL from secrets (reuse the same Lambda as RC verification)
-    const awsGatewayUrl = Deno.env.get('AWS_RC_API_GATEWAY_URL')
+    // Try multiple env names for robustness
+    const awsGatewayUrl =
+      Deno.env.get('AWS_API_GATEWAY_URL') ||
+      Deno.env.get('AWS_RC_API_GATEWAY_URL') ||
+      Deno.env.get('AWS_RC_API_URL') ||
+      Deno.env.get('AWS_GATEWAY_URL')
     const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
 
     if (!awsGatewayUrl) {
-      console.error('AWS_RC_API_GATEWAY_URL not configured')
+      console.error('AWS API Gateway URL not configured. Checked: AWS_API_GATEWAY_URL, AWS_RC_API_GATEWAY_URL, AWS_RC_API_URL, AWS_GATEWAY_URL')
       return new Response(
         JSON.stringify({ error: 'FASTag API not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

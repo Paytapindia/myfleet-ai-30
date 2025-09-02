@@ -62,16 +62,27 @@ serve(async (req) => {
       vehicleNumber,
     })
 
-    // Call AWS API Gateway -> Lambda -> APIClub
+    // Construct a payload compatible with multiple Lambda expectations
+    const payload = {
+      vehicleId: vehicleNumber,
+      rc_number: vehicleNumber,
+      registrationNumber: vehicleNumber,
+    }
+    console.log('AWS request payload preview:', payload)
+
+    // Call AWS API Gateway -> Lambda -> APIClub (with timeout)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
     const apiResponse = await fetch(awsApiGatewayUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        vehicleId: vehicleNumber,
-      })
-    })
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId))
 
     console.log('AWS API Gateway response status:', apiResponse.status)
 
@@ -83,7 +94,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: 'RC verification failed',
-          details: `AWS API Gateway error ${apiResponse.status}` 
+          details: `AWS API Gateway error ${apiResponse.status}${errText ? ` - ${errText.slice(0, 200)}` : ''}` 
         }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -111,6 +122,13 @@ serve(async (req) => {
       }
     }
 
+    // If Lambda used proxy integration with a string body, parse it
+    if (raw && typeof raw.body === 'string') {
+      try { raw.body = JSON.parse(raw.body) } catch (e) {
+        console.error('Failed to parse nested string body from AWS response', e)
+      }
+    }
+
     if (!raw) {
       console.error('Invalid response format from AWS API Gateway', { contentType, preview: bodyText?.slice(0, 200) })
       return new Response(
@@ -123,8 +141,8 @@ serve(async (req) => {
       )
     }
 
-    console.log('AWS API Gateway response received', { success: (raw as any)?.body?.status === 'success' })
-
+    const rawPreview = (() => { try { return JSON.stringify(raw).slice(0, 500) } catch { return null } })()
+    console.log('AWS API Gateway response received', { status: (raw as any)?.status ?? (raw as any)?.body?.status, preview: rawPreview })
     // Normalize APIClub response for UI compatibility
     const normalizeData = (apiResponse: any) => {
       // Handle AWS Lambda response format: { statusCode: 200, body: { response: {...} } }

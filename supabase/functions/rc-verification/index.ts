@@ -48,6 +48,38 @@ async function fetchWithRetry(url: string, payload: any, maxRetries = 2) {
   throw lastError ?? new Error(`Failed after retries (lastStatus=${lastStatus})`);
 }
 
+// Helpers to sanitize values before DB writes
+function toDateOrNull(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already YYYY-MM-DD
+  // Convert DD/MM/YYYY or DD-MM-YYYY => YYYY-MM-DD
+  const m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+function toIntOrNull(value: any): number | null {
+  const n = parseInt(String(value), 10);
+  return isNaN(n) ? null : n;
+}
+
+function toBool(value: any): boolean {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function toStringOrNull(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s || null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -317,22 +349,22 @@ number: response.license_plate || response.rc_number || response.registration_nu
         .maybeSingle()
 
       const vehicleData = {
-        owner_name: normalized.ownerName,
-        chassis_number: normalized.chassisNumber,
-        engine_number: normalized.engineNumber,
-        fuel_type: normalized.fuelType,
-        registration_date: normalized.registrationDate,
-        registration_authority: normalized.registrationAuthority,
-        permanent_address: (raw?.body?.response?.permanent_address || raw?.response?.permanent_address || ''),
-        financer: (raw?.body?.response?.financer || raw?.response?.financer || ''),
-        is_financed: (raw?.body?.response?.is_financed || raw?.response?.is_financed || false),
+        owner_name: toStringOrNull(normalized.ownerName),
+        chassis_number: toStringOrNull(normalized.chassisNumber),
+        engine_number: toStringOrNull(normalized.engineNumber),
+        fuel_type: toStringOrNull(normalized.fuelType),
+        registration_date: toDateOrNull(normalized.registrationDate),
+        registration_authority: toStringOrNull(normalized.registrationAuthority),
+        permanent_address: toStringOrNull(raw?.body?.response?.permanent_address ?? raw?.response?.permanent_address),
+        financer: toStringOrNull(raw?.body?.response?.financer ?? raw?.response?.financer),
+        is_financed: toBool(raw?.body?.response?.is_financed ?? raw?.response?.is_financed),
         rc_verified_at: new Date().toISOString(),
         rc_verification_status: 'verified',
-        model: normalized.model || 'Not specified',
-        make: normalized.make,
-        year: normalized.year ? parseInt(normalized.year) : null,
-        insurance_expiry: normalized.insuranceExpiry,
-        pollution_expiry: normalized.puccExpiry
+        model: toStringOrNull(normalized.model) || 'Not specified',
+        make: toStringOrNull(normalized.make),
+        year: toIntOrNull(normalized.year),
+        insurance_expiry: toDateOrNull(normalized.insuranceExpiry),
+        pollution_expiry: toDateOrNull(normalized.puccExpiry)
       }
 
       if (existingVehicle) {

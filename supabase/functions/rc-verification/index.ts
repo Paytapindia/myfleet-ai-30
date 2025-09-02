@@ -46,55 +46,44 @@ serve(async (req) => {
 
     console.log(`RC verification requested for vehicle: ${vehicleNumber} by user: ${user.id}`)
 
-    // Get Pipedream webhook URL and proxy token from secrets
-    const pipedreamUrl = Deno.env.get('PIPEDREAM_WEBHOOK_URL')
-    const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
+    // Get AWS API Gateway URL from secrets
+    const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL')
     
-    if (!pipedreamUrl) {
-      console.error('PIPEDREAM_WEBHOOK_URL not configured')
+    if (!awsApiGatewayUrl) {
+      console.error('AWS_API_GATEWAY_URL not configured')
       return new Response(
-        JSON.stringify({ error: 'Pipedream webhook not configured' }),
+        JSON.stringify({ error: 'AWS API Gateway not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Build request headers for Pipedream webhook
-    const requestHeaders: Record<string, string> = {
-      'content-type': 'application/json',
-    }
-
-    // Add authentication headers if configured
-    if (proxyToken) {
-      requestHeaders['x-proxy-token'] = proxyToken
-    }
-
-    console.log('Calling Pipedream webhook', {
-      url: pipedreamUrl,
+    console.log('Calling AWS API Gateway', {
+      url: awsApiGatewayUrl,
       vehicleNumber,
-      hasProxyToken: Boolean(proxyToken),
     })
 
-    // Call Pipedream webhook -> AWS Lambda -> API Club
-    const apiResponse = await fetch(pipedreamUrl, {
+    // Call AWS API Gateway -> Lambda -> APIClub
+    const apiResponse = await fetch(awsApiGatewayUrl, {
       method: 'POST',
-      headers: requestHeaders,
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        vehicleNumber,
-        rc_number: vehicleNumber,
+        vehicleId: vehicleNumber,
       })
     })
 
-    console.log('Pipedream webhook response status:', apiResponse.status)
+    console.log('AWS API Gateway response status:', apiResponse.status)
 
     if (!apiResponse.ok) {
       const errText = await apiResponse.text()
-      console.error('Pipedream webhook error:', apiResponse.status, errText)
+      console.error('AWS API Gateway error:', apiResponse.status, errText)
 
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'RC verification failed',
-          details: `Webhook error ${apiResponse.status}` 
+          details: `AWS API Gateway error ${apiResponse.status}` 
         }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -109,7 +98,7 @@ serve(async (req) => {
       try {
         raw = await apiResponse.json()
       } catch (e) {
-        console.error('Failed to parse JSON response from webhook', e)
+        console.error('Failed to parse JSON response from AWS API Gateway', e)
       }
     } else {
       bodyText = await apiResponse.text()
@@ -123,7 +112,7 @@ serve(async (req) => {
     }
 
     if (!raw) {
-      console.error('Invalid response format from webhook', { contentType, preview: bodyText?.slice(0, 200) })
+      console.error('Invalid response format from AWS API Gateway', { contentType, preview: bodyText?.slice(0, 200) })
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -134,25 +123,27 @@ serve(async (req) => {
       )
     }
 
-    console.log('Pipedream webhook response received', { success: (raw as any)?.success })
+    console.log('AWS API Gateway response received', { success: (raw as any)?.body?.status === 'success' })
 
-    // Re-normalize AWS response for UI compatibility
-    const normalizeData = (api: any) => {
-      const src = api?.data ?? api ?? {}
+    // Normalize APIClub response for UI compatibility
+    const normalizeData = (apiResponse: any) => {
+      // Handle AWS Lambda response format: { statusCode: 200, body: { response: {...} } }
+      const response = apiResponse?.body?.response ?? apiResponse?.response ?? {}
+      
       return {
-        number: src.rc_number || src.registration_number || src.regn_no || vehicleNumber,
-        model: src.model || src.Model || '',
-        make: src.make || src.Make || '',
-        year: (src.mfg_year || src.year || src.manufacturing_year)?.toString() || '',
-        fuelType: src.fuel_type || src.fuel || '',
-        registrationDate: src.registration_date || src.regn_dt || '',
-        ownerName: src.owner_name || src.owner || '',
-        chassisNumber: src.chassis_number || src.chassis_no || src.chassisNo || '',
-        engineNumber: src.engine_number || src.engine_no || src.engineNo || '',
-        registrationAuthority: src.registering_authority || src.rto || src.registration_authority || '',
-        fitnessExpiry: src.fitness_upto || src.fitnessExpiry || '',
-        puccExpiry: src.pucc_upto || src.puc_valid_upto || src.puccExpiry || '',
-        insuranceExpiry: src.insurance_valid_upto || src.insuranceExpiry || '',
+        number: response.license_plate || response.rc_number || response.registration_number || vehicleNumber,
+        model: response.brand_model || response.model || response.Model || '',
+        make: response.brand_name || response.make || response.Make || '',
+        year: (response.manufacturing_year || response.mfg_year || response.year)?.toString() || '',
+        fuelType: response.fuel_type || response.fuel || '',
+        registrationDate: response.registration_date || response.regn_dt || '',
+        ownerName: response.owner_name || response.owner || '',
+        chassisNumber: response.chassis_number || response.chassis_no || response.chassisNo || '',
+        engineNumber: response.engine_number || response.engine_no || response.engineNo || '',
+        registrationAuthority: response.registering_authority || response.rto || response.registration_authority || '',
+        fitnessExpiry: response.fitness_upto || response.fitnessExpiry || '',
+        puccExpiry: response.pucc_upto || response.puc_valid_upto || response.puccExpiry || '',
+        insuranceExpiry: response.insurance_expiry || response.insurance_valid_upto || response.insuranceExpiry || '',
       }
     }
 

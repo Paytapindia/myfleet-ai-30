@@ -10,7 +10,7 @@ export default function AppLayout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 p-6 bg-secondary/30">
+          <main className="flex-1 p-3 sm:p-4 lg:p-6 bg-secondary/30 overflow-auto">
             <div className="animate-fade-in">
               <Outlet />
             </div>

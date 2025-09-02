@@ -31,36 +31,40 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      
-      
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+      <main className="container mx-auto px-0 sm:px-4 py-3 sm:py-6 max-w-7xl">
         {/* Fleet Overview Stats - moved to top */}
-        <FleetOverview />
+        <div className="px-3 sm:px-0">
+          <FleetOverview />
+        </div>
         
         {/* Quick Add Transaction */}
-        <AddTransactionHero />
+        <div className="px-3 sm:px-0">
+          <AddTransactionHero />
+        </div>
         
         {/* Vehicle Cards Section */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg md:text-xl font-semibold text-foreground">Vehicle Manager</h2>
-              <p className="hidden sm:block text-sm text-muted-foreground">Manage up to 25 vehicles ({vehicles.length}/25)</p>
+        <div className="mt-4 sm:mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 px-3 sm:px-0 space-y-2 sm:space-y-0">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg md:text-xl font-semibold text-foreground truncate">Vehicle Manager</h2>
+              <p className="text-sm text-muted-foreground">Manage up to 25 vehicles ({vehicles.length}/25)</p>
             </div>
-            <AddVehicleModal />
+            <div className="shrink-0">
+              <AddVehicleModal />
+            </div>
           </div>
           
-          {/* Horizontal Scrolling Vehicle Cards */}
-          <div className="flex flex-col gap-4 md:flex-row md:space-x-4 md:overflow-x-auto pb-4 scrollbar-hide mobile-scroll">
+          {/* Vehicle Cards - Mobile First Layout */}
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:space-x-4 md:overflow-x-auto pb-4 scrollbar-hide mobile-scroll px-3 sm:px-0">
             {vehicles.length > 0 ? (
               vehicles.map((vehicle) => (
                 <VehicleCard key={vehicle.id} vehicle={vehicle} />
               ))
             ) : (
-              <div className="w-full md:w-80 md:flex-shrink-0 border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[400px] bg-muted/30">
-                <div className="text-center p-6">
-                  <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No Vehicles Yet</h3>
+              <div className="w-full md:w-80 md:flex-shrink-0 border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[300px] sm:min-h-[400px] bg-muted/30">
+                <div className="text-center p-4 sm:p-6">
+                  <Plus className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No Vehicles Yet</h3>
                   <p className="text-sm text-muted-foreground">Click \"Add Vehicle\" to get started</p>
                 </div>
               </div>

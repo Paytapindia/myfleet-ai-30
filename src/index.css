@@ -198,7 +198,7 @@ All colors MUST be HSL. Implementing clean, minimal Apple aesthetics.
   @media (max-width: 768px) {
     .mobile-card {
       width: 100%;
-      min-width: 100%;
+      min-width: 280px;
       max-width: 100%;
     }
     
@@ -210,11 +210,41 @@ All colors MUST be HSL. Implementing clean, minimal Apple aesthetics.
     .mobile-scroll > * {
       scroll-snap-align: none;
     }
+
+    /* Better mobile padding */
+    .mobile-padding {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    /* Mobile-friendly text sizes */
+    .mobile-text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+
+    .mobile-text-base {
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
   }
 
   /* Touch-friendly targets */
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Better mobile spacing */
+  .mobile-space-y-3 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+  }
+
+  .mobile-space-x-2 > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 0;
+    margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));
+    margin-right: calc(0.5rem * var(--tw-space-x-reverse));
   }
 
   /* Safe area helpers */

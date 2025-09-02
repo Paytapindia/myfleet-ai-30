@@ -70,17 +70,17 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const isInsuranceActive = insuranceStatus === 'uploaded';
 
   return (
-    <Card className="w-full md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-3xl overflow-hidden">
+    <Card className="w-full sm:max-w-sm md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl overflow-hidden">
       {/* Apple-inspired Vehicle Header */}
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3 sm:pb-4 px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div>
-              <h3 className="text-xl font-bold text-foreground tracking-tight">{vehicle.number}</h3>
-              <p className="text-sm text-muted-foreground font-medium">{vehicle.model}</p>
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg sm:text-xl font-bold text-foreground tracking-tight truncate">{vehicle.number}</h3>
+              <p className="text-sm text-muted-foreground font-medium truncate">{vehicle.model}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 ml-2">
             {vehicle.challans > 0 && (
               <Badge 
                 variant="destructive" 
@@ -94,39 +94,39 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6 pb-6">
+      <CardContent className="space-y-4 sm:space-y-6 pb-4 sm:pb-6 px-4 sm:px-6">
         {/* Quick Stats Row - 3 Key Metrics */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           {/* Fuel Balance */}
           <div 
-            className="flex flex-col items-center p-4 rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300"
+            className="flex flex-col items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300 touch-target"
             onClick={() => setShowFuelModal(true)}
           >
-            <Fuel className="h-4 w-4 text-muted-foreground mb-2" strokeWidth={1.5} />
-            <p className="text-xs text-muted-foreground font-medium mb-1">Fuel Balance</p>
-            <p className="text-sm font-bold text-primary">₹{vehicle.payTapBalance}</p>
+            <Fuel className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mb-1 sm:mb-2" strokeWidth={1.5} />
+            <p className="text-xs text-muted-foreground font-medium mb-1 text-center">Fuel Balance</p>
+            <p className="text-xs sm:text-sm font-bold text-primary truncate">₹{vehicle.payTapBalance}</p>
           </div>
 
           {/* FASTag */}
           <div 
-            className="flex flex-col items-center p-4 rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300"
+            className="flex flex-col items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300 touch-target"
             onClick={() => setShowFastagModal(true)}
           >
-            <LinkIcon className="h-4 w-4 text-muted-foreground mb-2" strokeWidth={1.5} />
-            <p className="text-xs text-muted-foreground font-medium mb-1">FASTag</p>
-            <p className={`text-sm font-bold ${vehicle.fastTagLinked ? 'text-green-600' : 'text-red-600'}`}>
+            <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mb-1 sm:mb-2" strokeWidth={1.5} />
+            <p className="text-xs text-muted-foreground font-medium mb-1 text-center">FASTag</p>
+            <p className={`text-xs sm:text-sm font-bold ${vehicle.fastTagLinked ? 'text-green-600' : 'text-red-600'} text-center`}>
               {vehicle.fastTagLinked ? 'Linked' : 'Not Linked'}
             </p>
           </div>
 
           {/* Driver */}
           <div 
-            className="flex flex-col items-center p-4 rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300"
+            className="flex flex-col items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-background/50 border border-border/30 cursor-pointer hover:bg-background/80 transition-all duration-300 touch-target"
             onClick={() => setShowDriverModal(true)}
           >
-            <UserCheck className="h-4 w-4 text-muted-foreground mb-2" strokeWidth={1.5} />
-            <p className="text-xs text-muted-foreground font-medium mb-1">Driver</p>
-            <p className={`text-sm font-bold ${driverName ? 'text-foreground' : 'text-muted-foreground'} truncate w-full text-center`}>
+            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mb-1 sm:mb-2" strokeWidth={1.5} />
+            <p className="text-xs text-muted-foreground font-medium mb-1 text-center">Driver</p>
+            <p className={`text-xs sm:text-sm font-bold ${driverName ? 'text-foreground' : 'text-muted-foreground'} truncate w-full text-center`}>
               {driverName || 'Unassigned'}
             </p>
           </div>
@@ -134,8 +134,8 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
 
         {/* Expandable Details Section */}
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="w-full">
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20 hover:bg-background/50 transition-all duration-300">
+          <CollapsibleTrigger className="w-full touch-target">
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-background/30 border border-border/20 hover:bg-background/50 transition-all duration-300">
               <span className="text-sm font-medium text-muted-foreground">More Details</span>
               {isExpanded ? (
                 <ChevronUp className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
@@ -145,7 +145,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
             </div>
           </CollapsibleTrigger>
 
-          <CollapsibleContent className="space-y-3 pt-3">
+          <CollapsibleContent className="space-y-2 sm:space-y-3 pt-2 sm:pt-3">
             {/* Fines Count */}
             <div 
               className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20 cursor-pointer hover:bg-background/50 transition-all duration-300"

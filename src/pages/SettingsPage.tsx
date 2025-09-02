@@ -79,23 +79,24 @@ const SettingsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border px-4 py-3 shadow-sm">
-        <div className="flex items-center space-x-3">
+      <header className="bg-card border-b border-border px-3 sm:px-4 py-3 shadow-sm">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/')}
+            className="touch-target"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground">Manage your profile information</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">Settings</h1>
+            <p className="text-sm text-muted-foreground truncate">Manage your profile information</p>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-2xl">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">

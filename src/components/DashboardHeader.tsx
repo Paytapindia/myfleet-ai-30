@@ -31,19 +31,19 @@ const DashboardHeader = () => {
   const unreadCount = vehicleAlerts.length;
 
   return (
-    <header className="sticky top-0 z-40 glass-effect border-b border-border/50 px-6 py-4">
+    <header className="sticky top-0 z-40 glass-effect border-b border-border/50 px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <SidebarTrigger className="apple-button" />
-          <div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">{t('app.name')}</h1>
-            <p className="hidden sm:block text-sm text-muted-foreground font-medium">
+        <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+          <SidebarTrigger className="apple-button shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight truncate">{t('app.name')}</h1>
+            <p className="hidden sm:block text-sm text-muted-foreground font-medium truncate">
               {t('header.welcomeBack', { name: user?.fullName || t('roles.fleetManager') })}
             </p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
           <DropdownMenu open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
             <DropdownMenuTrigger asChild>
               <Button 

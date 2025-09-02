@@ -26,15 +26,17 @@ const VehicleManagerPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
+      <main className="container mx-auto px-0 sm:px-4 py-3 sm:py-6 max-w-7xl">
         {/* Page Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Vehicle Manager</h1>
-              <p className="text-muted-foreground">Manage and monitor your entire fleet in one place</p>
+        <div className="mb-4 sm:mb-6 px-3 sm:px-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 space-y-3 sm:space-y-0">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">Vehicle Manager</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Manage and monitor your entire fleet in one place</p>
             </div>
-            <AddVehicleModal />
+            <div className="shrink-0">
+              <AddVehicleModal />
+            </div>
           </div>
           <p className="text-sm text-muted-foreground">
             Fleet capacity: {vehicles.length}/25 vehicles
@@ -42,9 +44,9 @@ const VehicleManagerPage = () => {
         </div>
         
         {/* Vehicle Cards Section */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           {/* Grid Layout for Vehicle Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4 px-3 sm:px-0">
             {vehicles.length > 0 ? (
               vehicles.map((vehicle) => (
                 <VehicleCard key={vehicle.id} vehicle={vehicle} />
@@ -77,16 +79,16 @@ const VehicleManagerPage = () => {
           
           {/* Vehicle List Table */}
           {vehicles.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Vehicle List</h3>
+            <div className="mt-6 sm:mt-8 px-3 sm:px-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-3 sm:mb-4">Vehicle List</h3>
               <VehicleListTable vehicles={vehicles} />
             </div>
           )}
 
           {vehicles.length > 0 && (
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-muted/50 rounded-lg mx-3 sm:mx-0">
               <h3 className="text-sm font-medium text-foreground mb-2">Fleet Summary</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Total Vehicles:</span>
                   <span className="ml-2 font-medium">{vehicles.length}</span>

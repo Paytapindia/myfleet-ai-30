@@ -21,11 +21,10 @@ serve(async (req) => {
 
   const MSG91_AUTHKEY = Deno.env.get("MSG91_AUTHKEY");
   const MSG91_TEMPLATE_ID = Deno.env.get("MSG91_TEMPLATE_ID_LOGIN");
-  const MSG91_SENDER_ID = Deno.env.get("MSG91_SENDER_ID");
 
-  if (!MSG91_AUTHKEY || !MSG91_TEMPLATE_ID || !MSG91_SENDER_ID) {
+  if (!MSG91_AUTHKEY || !MSG91_TEMPLATE_ID) {
     console.error("Missing MSG91 secrets");
-    return new Response(JSON.stringify({ error: "Server not configured: MSG91 secrets missing (authkey/template_id/sender)" }), {
+    return new Response(JSON.stringify({ error: "Server not configured: MSG91 secrets missing" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
@@ -49,27 +48,12 @@ serve(async (req) => {
       });
     }
 
-    // Normalize to E.164 without plus, defaulting to India (91)
-    const rawMobile = String(mobile).trim();
-    const digits = rawMobile.replace(/[^\d]/g, "");
-    let mobileE164 = digits.startsWith("91")
-      ? digits
-      : (digits.length === 10 ? `91${digits}` : digits);
-
-    if (!/^\d{12,15}$/.test(mobileE164) || !mobileE164.startsWith("91")) {
-      return new Response(JSON.stringify({ error: "Invalid 'mobile'. Use country code, e.g., 919900010964" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Build query params as per MSG91 OTP API (authkey must be in header)
+    // Build query params as per MSG91 OTP API
     const qp = new URLSearchParams({
+      authkey: MSG91_AUTHKEY,
       template_id: MSG91_TEMPLATE_ID,
-      mobile: mobileE164,
+      mobile,
     });
-    // DLT sender ID (6 chars) required in India
-    qp.set("sender", MSG91_SENDER_ID);
 
     // expiry is optional; default 10 minutes
     const expiry = typeof expiryMinutes === "number" && expiryMinutes > 0 ? String(expiryMinutes) : "10";
@@ -100,7 +84,7 @@ serve(async (req) => {
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", authkey: MSG91_AUTHKEY },
+      headers: { "Content-Type": "application/json" },
       body: Object.keys(payload).length ? JSON.stringify(payload) : undefined,
     });
 
@@ -116,7 +100,6 @@ serve(async (req) => {
       });
     }
 
-    console.log("MSG91 Send OTP response:", { status: res.status, data });
     return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },

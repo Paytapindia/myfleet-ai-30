@@ -10,13 +10,13 @@ const VehicleManagerPage = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="container mx-auto px-4 py-6 max-w-7xl">
-          <div className="flex items-center justify-center min-h-[400px]">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-7xl">
+          <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
             <div className="text-center">
-              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-                <div className="w-8 h-8 bg-primary-foreground rounded"></div>
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 animate-pulse">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary-foreground rounded"></div>
               </div>
-              <p className="text-muted-foreground">Loading your vehicles...</p>
+              <p className="text-sm sm:text-base text-muted-foreground">Loading your vehicles...</p>
             </div>
           </div>
         </main>
@@ -52,11 +52,11 @@ const VehicleManagerPage = () => {
                 <VehicleCard key={vehicle.id} vehicle={vehicle} />
               ))
             ) : (
-              <div className="col-span-full border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[400px] bg-muted/30">
-                <div className="text-center p-6">
-                  <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No Vehicles Yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+              <div className="col-span-full border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[300px] sm:min-h-[400px] bg-muted/30">
+                <div className="text-center p-4 sm:p-6">
+                  <Plus className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No Vehicles Yet</h3>
+                  <p className="text-sm text-muted-foreground mb-3 sm:mb-4">
                     Start building your fleet by adding your first vehicle
                   </p>
                   <AddVehicleModal />
@@ -66,11 +66,11 @@ const VehicleManagerPage = () => {
             
             {/* Add Vehicle Card - Always show if under limit */}
             {vehicles.length < 25 && vehicles.length > 0 && (
-              <div className="border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[400px] bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
-                <div className="text-center p-6">
-                  <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">Add New Vehicle</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Expand your fleet management</p>
+              <div className="border-2 border-dashed border-border rounded-lg flex items-center justify-center min-h-[300px] sm:min-h-[400px] bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                <div className="text-center p-4 sm:p-6">
+                  <Plus className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Add New Vehicle</h3>
+                  <p className="text-sm text-muted-foreground mb-3 sm:mb-4">Expand your fleet management</p>
                   <AddVehicleModal />
                 </div>
               </div>

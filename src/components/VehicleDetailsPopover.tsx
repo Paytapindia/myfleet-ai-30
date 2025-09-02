@@ -34,13 +34,20 @@ const VehicleDetailsPopover = ({ vehicleNumber }: VehicleDetailsPopoverProps) =>
     }
   };
 
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (open) {
-      handleFetchDetails();
-    }
-  };
+const handleOpenChange = (open: boolean) => {
+  setIsOpen(open);
+  if (open) {
+    // Allow a fresh fetch each time it's opened
+    setVehicleDetails(null);
+    handleFetchDetails();
+  }
+};
 
+const handleRetry = async () => {
+  setVehicleDetails(null);
+  setError(null);
+  await handleFetchDetails();
+};
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -66,12 +73,17 @@ const VehicleDetailsPopover = ({ vehicleNumber }: VehicleDetailsPopoverProps) =>
             </div>
           )}
 
-          {error && (
-            <div className="flex items-center space-x-2 py-4 text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">{error}</span>
-            </div>
-          )}
+{error && (
+  <div className="flex items-center justify-between py-4">
+    <div className="flex items-center space-x-2 text-destructive">
+      <AlertCircle className="h-4 w-4" />
+      <span className="text-sm">{error}</span>
+    </div>
+    <Button size="sm" variant="secondary" onClick={handleRetry}>
+      Retry
+    </Button>
+  </div>
+)}
 
           {vehicleDetails && vehicleDetails.success && !isLoading && (
             <div className="space-y-4">

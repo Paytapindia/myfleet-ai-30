@@ -6,6 +6,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Utilities: sanitize input and add robust retry for upstream calls
+const sanitizeVehicleNumber = (input: string) =>
+  input?.toString().toUpperCase().replace(/[\s-]/g, '').trim();
+
+async function fetchWithRetry(url: string, payload: any, maxRetries = 2) {
+  let attempt = 0;
+  let lastStatus: number | null = null;
+  let lastError: any = null;
+  while (attempt <= maxRetries) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s per attempt
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      lastStatus = res.status;
+      if (res.ok) return res;
+      // Retry only on 5xx responses
+      if (res.status >= 500) {
+        attempt++;
+        if (attempt > maxRetries) return res;
+        const backoff = 500 * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+      // Do not retry on 4xx
+      return res;
+    } catch (e) {
+      lastError = e;
+      attempt++;
+      if (attempt > maxRetries) throw e;
+      const backoff = 500 * Math.pow(2, attempt - 1);
+      await new Promise((r) => setTimeout(r, backoff));
+    }
+  }
+  throw lastError ?? new Error(`Failed after retries (lastStatus=${lastStatus})`);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -35,22 +77,25 @@ serve(async (req) => {
       )
     }
 
-    const { vehicleNumber } = await req.json()
+const body = await req.json()
+const vehicleNumber = body?.vehicleNumber
 
-    if (!vehicleNumber) {
-      return new Response(
-        JSON.stringify({ error: 'Vehicle number is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+if (!vehicleNumber) {
+  return new Response(
+    JSON.stringify({ error: 'Vehicle number is required' }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
-    console.log(`RC verification requested for vehicle: ${vehicleNumber} by user: ${user.id}`)
+const vNum = sanitizeVehicleNumber(vehicleNumber)
+
+console.log(`RC verification requested for vehicle: ${vNum} by user: ${user.id}`)
 
     // First, check if we have cached RC data for this vehicle
     const { data: cachedVehicle, error: cacheError } = await supabaseClient
-      .from('vehicles')
+.from('vehicles')
       .select('*')
-      .eq('number', vehicleNumber)
+      .eq('number', vNum)
       .eq('user_id', user.id)
       .eq('rc_verification_status', 'verified')
       .maybeSingle()
@@ -61,7 +106,7 @@ serve(async (req) => {
 
     // If we have complete cached data, return it
     if (cachedVehicle && cachedVehicle.owner_name && cachedVehicle.rc_verified_at) {
-      console.log(`Returning cached RC data for vehicle: ${vehicleNumber}`)
+console.log(`Returning cached RC data for vehicle: ${vNum}`)
       
       // Log this as a cached verification to track cost savings
       await supabaseClient.from('rc_verifications').insert({
@@ -114,7 +159,7 @@ serve(async (req) => {
       )
     }
 
-    console.log(`No cached data found, calling APIClub for vehicle: ${vehicleNumber}`)
+console.log(`No cached data found, calling APIClub for vehicle: ${vNum}`)
 
     // Get AWS API Gateway URL from secrets
     const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL')
@@ -127,48 +172,72 @@ serve(async (req) => {
       )
     }
 
-    console.log('Calling AWS API Gateway', {
-      url: awsApiGatewayUrl,
-      vehicleNumber,
-    })
+console.log('Calling AWS API Gateway', {
+  url: awsApiGatewayUrl,
+  vehicleNumber: vNum,
+})
 
     // Construct a payload compatible with multiple Lambda expectations
-    const payload = {
-      vehicleId: vehicleNumber,
-      rc_number: vehicleNumber,
-      registrationNumber: vehicleNumber,
-    }
-    console.log('AWS request payload preview:', payload)
+const payload = {
+  vehicleId: vNum,
+  rc_number: vNum,
+  registrationNumber: vNum,
+}
+console.log('AWS request payload preview:', payload)
 
-    // Call AWS API Gateway -> Lambda -> APIClub (with timeout)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+// Call AWS API Gateway with retries
+let apiResponse: Response;
+try {
+  apiResponse = await fetchWithRetry(awsApiGatewayUrl, payload, 2);
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e)
+  console.error('AWS API Gateway fetch error after retries:', message)
+  // Log failure (non-blocking)
+  await supabaseClient.from('rc_verifications').insert({
+    user_id: user.id,
+    vehicle_number: vNum,
+    status: 'failed',
+    verification_data: { error: message },
+    is_cached: false,
+    api_cost_saved: false
+  })
+  return new Response(
+    JSON.stringify({
+      success: false,
+      cached: false,
+      error: 'Verification service unavailable. Please try again.',
+      details: message,
+      retryAfterMs: 2000
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
-    const apiResponse = await fetch(awsApiGatewayUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeoutId))
+console.log('AWS API Gateway response status:', apiResponse.status)
 
-    console.log('AWS API Gateway response status:', apiResponse.status)
-
-    if (!apiResponse.ok) {
-      const errText = await apiResponse.text()
-      console.error('AWS API Gateway error:', apiResponse.status, errText)
-
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'RC verification failed',
-          details: `AWS API Gateway error ${apiResponse.status}${errText ? ` - ${errText.slice(0, 200)}` : ''}` 
-        }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+if (!apiResponse.ok) {
+  const errText = await apiResponse.text()
+  console.error('AWS API Gateway error:', apiResponse.status, errText)
+  // Log failure (non-blocking)
+  await supabaseClient.from('rc_verifications').insert({
+    user_id: user.id,
+    vehicle_number: vNum,
+    status: 'failed',
+    verification_data: { upstream_status: apiResponse.status, preview: errText?.slice(0, 200) },
+    is_cached: false,
+    api_cost_saved: false
+  })
+  return new Response(
+    JSON.stringify({ 
+      success: false, 
+      cached: false,
+      error: 'RC verification failed',
+      details: `Upstream error ${apiResponse.status}${errText ? ` - ${errText.slice(0, 200)}` : ''}`,
+      retryable: apiResponse.status >= 500
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
     // Safely parse response (handle non-JSON bodies)
     const contentType = apiResponse.headers.get('content-type') ?? ''
@@ -219,7 +288,7 @@ serve(async (req) => {
       const response = apiResponse?.body?.response ?? apiResponse?.response ?? {}
       
       return {
-        number: response.license_plate || response.rc_number || response.registration_number || vehicleNumber,
+number: response.license_plate || response.rc_number || response.registration_number || vNum,
         model: response.brand_model || response.model || response.Model || '',
         make: response.brand_name || response.make || response.Make || '',
         year: (response.manufacturing_year || response.mfg_year || response.year)?.toString() || '',
@@ -243,8 +312,8 @@ serve(async (req) => {
       const { data: existingVehicle } = await supabaseClient
         .from('vehicles')
         .select('id')
-        .eq('number', vehicleNumber)
-        .eq('user_id', user.id)
+.eq('number', vNum)
+      .eq('user_id', user.id)
         .maybeSingle()
 
       const vehicleData = {
@@ -278,13 +347,13 @@ serve(async (req) => {
           .from('vehicles')
           .insert({
             ...vehicleData,
-            user_id: user.id,
-            number: vehicleNumber,
+user_id: user.id,
+            number: vNum,
             status: 'active'
           })
       }
 
-      console.log(`Cached RC data for vehicle: ${vehicleNumber}`)
+      console.log(`Cached RC data for vehicle: ${vNum}`)
     } catch (cacheError) {
       console.error('Error caching vehicle RC data:', cacheError)
       // Continue even if caching fails
@@ -292,15 +361,15 @@ serve(async (req) => {
 
     // Store verification record
     await supabaseClient.from('rc_verifications').insert({
-      user_id: user.id,
-      vehicle_number: vehicleNumber,
+user_id: user.id,
+      vehicle_number: vNum,
       status: 'success',
       verification_data: normalized,
       is_cached: false,
       api_cost_saved: false
     })
 
-    console.log(`RC verification completed for vehicle: ${vehicleNumber}`)
+    console.log(`RC verification completed for vehicle: ${vNum}`)
 
     return new Response(
       JSON.stringify({ success: true, cached: false, data: normalized }),

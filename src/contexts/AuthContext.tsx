@@ -32,6 +32,7 @@ interface AuthContextType {
     fullName: string;
     companyName: string;
     panNumber: string;
+    phone: string;
   }) => Promise<boolean>;
   startTrial: () => Promise<void>;
   setPaidSubscription: (tier: 'semiannual' | 'annual') => Promise<void>;
@@ -250,6 +251,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     fullName: string;
     companyName: string;
     panNumber: string;
+    phone: string;
   }): Promise<boolean> => {
     try {
       if (!user) {
@@ -257,12 +259,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return false;
       }
       
+      // Check if phone number changed, reset verification status if so
+      const phoneChanged = user.phone !== profileData.phone;
+      
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: profileData.fullName,
           company_name: profileData.companyName,
           pan_number: profileData.panNumber,
+          phone: profileData.phone,
+          ...(phoneChanged && { phone_verified: false }),
         })
         .eq('user_id', user.id);
 

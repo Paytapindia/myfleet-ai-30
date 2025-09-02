@@ -18,6 +18,7 @@ const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
   companyName: z.string().min(2, "Company name must be at least 2 characters"),
   panNumber: z.string().min(10, "PAN number must be 10 characters").max(10, "PAN number must be 10 characters"),
+  phone: z.string().regex(/^[6-9]\d{9}$/, "Please enter a valid 10-digit mobile number"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -35,6 +36,7 @@ const SettingsPage = () => {
       fullName: user?.fullName ?? "",
       companyName: user?.companyName ?? "",
       panNumber: user?.panNumber ?? "",
+      phone: user?.phone ?? "",
     },
   });
 
@@ -45,6 +47,7 @@ const SettingsPage = () => {
         fullName: data.fullName,
         companyName: data.companyName,
         panNumber: data.panNumber,
+        phone: data.phone,
       });
       if (success) {
         toast({
@@ -107,50 +110,56 @@ const SettingsPage = () => {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-4">
-                  <div className="space-y-3">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="flex items-center space-x-3">
-                      <Input
-                        id="phone"
-                        value={`+91 ${user?.phone}`}
-                        disabled
-                        className="bg-muted flex-1"
-                      />
-                      <Badge 
-                        variant={user?.phoneVerified ? "default" : "secondary"}
-                        className="flex items-center space-x-1"
-                      >
-                        {user?.phoneVerified ? (
-                          <>
-                            <CheckCircle className="h-3 w-3" />
-                            <span>Verified</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-3 w-3" />
-                            <span>Unverified</span>
-                          </>
-                        )}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        Phone number cannot be changed
-                      </p>
-                      {!user?.phoneVerified && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowPhoneVerification(true)}
-                          className="flex items-center space-x-1"
-                        >
-                          <Shield className="h-3 w-3" />
-                          <span>Verify Phone</span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <div className="flex items-center space-x-3">
+                          <FormControl>
+                            <Input 
+                              placeholder="Enter 10-digit mobile number" 
+                              {...field}
+                              className="flex-1"
+                              maxLength={10}
+                            />
+                          </FormControl>
+                          <Badge 
+                            variant={user?.phoneVerified && user?.phone === field.value ? "default" : "secondary"}
+                            className="flex items-center space-x-1"
+                          >
+                            {user?.phoneVerified && user?.phone === field.value ? (
+                              <>
+                                <CheckCircle className="h-3 w-3" />
+                                <span>Verified</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-3 w-3" />
+                                <span>Unverified</span>
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <FormMessage />
+                          {(!user?.phoneVerified || user?.phone !== field.value) && field.value && !form.formState.errors.phone && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowPhoneVerification(true)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Shield className="h-3 w-3" />
+                              <span>Verify Phone</span>
+                            </Button>
+                          )}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -225,7 +234,7 @@ const SettingsPage = () => {
       <PhoneVerificationModal
         isOpen={showPhoneVerification}
         onClose={() => setShowPhoneVerification(false)}
-        phoneNumber={user?.phone || ""}
+        phoneNumber={form.watch("phone")}
         onVerificationSuccess={handlePhoneVerificationSuccess}
       />
     </div>

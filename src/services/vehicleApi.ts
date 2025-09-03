@@ -20,7 +20,9 @@ export interface VehicleApiResponse {
   cached?: boolean;
 }
 
-export const fetchVehicleDetails = async (vehicleNumber: string): Promise<VehicleApiResponse> => {
+export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0): Promise<VehicleApiResponse> => {
+  const maxRetries = 1;
+  
   try {
     // Get the current session
     const { data: { session } } = await supabase.auth.getSession();
@@ -34,7 +36,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string): Promise<Vehicl
       };
     }
 
-    console.log(`Fetching RC verification for vehicle: ${vehicleNumber}`);
+    console.log(`RC verification attempt ${retryCount + 1} for vehicle: ${vehicleNumber}`);
 
     // Call our unified Supabase Edge Function for RC verification
     const { data, error } = await supabase.functions.invoke('vehicle-info', {
@@ -44,16 +46,25 @@ export const fetchVehicleDetails = async (vehicleNumber: string): Promise<Vehicl
       },
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'x-timeout': '15000' // 15 second timeout
       }
     });
 
     if (error) {
       console.error('RC verification error:', error);
+      
+      // Retry on timeout or network errors
+      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
+        console.log(`Retrying RC verification... (${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+        return fetchVehicleDetails(vehicleNumber, retryCount + 1);
+      }
+      
       return {
         number: vehicleNumber,
         model: '',
         success: false,
-        error: error.message || 'Failed to fetch vehicle details'
+        error: error.message || 'Failed to fetch vehicle details - This may take up to 10 seconds'
       };
     }
 
@@ -86,13 +97,21 @@ export const fetchVehicleDetails = async (vehicleNumber: string): Promise<Vehicl
       cached: data.cached || false
     };
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Vehicle details fetch error:', error);
+    
+    // Retry on timeout or network errors
+    if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
+      console.log(`Retrying RC verification after error... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+      return fetchVehicleDetails(vehicleNumber, retryCount + 1);
+    }
+    
     return {
       number: vehicleNumber,
       model: '',
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch vehicle details'
+      error: error instanceof Error ? error.message : 'Network timeout - Request takes up to 10 seconds'
     };
   }
 };

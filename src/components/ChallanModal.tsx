@@ -38,14 +38,16 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
   const [payingChallan, setPayingChallan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Function to fetch challans from API
-  const fetchChallans = async (vehicleNum: string) => {
+  // Function to fetch challans from API with retry logic
+  const fetchChallans = async (vehicleNum: string, retryCount = 0) => {
     if (!vehicleNum) return;
     
+    const maxRetries = 1;
     setIsLoading(true);
     setError(null);
+    
     try {
-      console.log(`Fetching challans for vehicle: ${vehicleNum}`);
+      console.log(`Challan fetch attempt ${retryCount + 1} for vehicle: ${vehicleNum}`);
       
       // First get vehicle details to fetch chassis and engine numbers
       const { data: { user } } = await supabase.auth.getUser();
@@ -74,12 +76,24 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           vehicleId: vehicleNum,
           chassis: vehicle.chassis_number,
           engine_no: vehicle.engine_number
+        },
+        headers: {
+          'x-timeout': '15000' // 15 second timeout
         }
       });
 
       if (error) {
         console.error('Supabase function error:', error);
-        throw new Error(error.message || 'Failed to fetch challans');
+        
+        // Retry on timeout or network errors
+        if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
+          console.log(`Retrying challan fetch... (${retryCount + 1}/${maxRetries})`);
+          setError('Retrying... This may take up to 10 seconds');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+          return fetchChallans(vehicleNum, retryCount + 1);
+        }
+        
+        throw new Error(error.message || 'Failed to fetch challans - This may take up to 10 seconds');
       }
 
       console.log('Challans API response:', data);
@@ -118,9 +132,18 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
       }
     } catch (error: any) {
       console.error('Error fetching challans:', error);
-      setError(error.message || 'Failed to fetch challans');
+      
+      // Retry on timeout or network errors
+      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
+        console.log(`Retrying challan fetch after error... (${retryCount + 1}/${maxRetries})`);
+        setError('Retrying... This may take up to 10 seconds');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry  
+        return fetchChallans(vehicleNum, retryCount + 1);
+      }
+      
+      setError(error.message || 'Network timeout - Request takes up to 10 seconds');
       setChallans([]);
-      toast.error(error.message || 'Failed to fetch challans');
+      toast.error(error.message || 'Network timeout - Request takes up to 10 seconds');
     } finally {
       setIsLoading(false);
     }
@@ -217,9 +240,18 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           {/* Loading State */}
           {isLoading && (
             <div className="flex items-center justify-center py-8">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Loading challans...</p>
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">
+                    {error && error.includes('Retrying') ? error : 'Loading challans... (This may take up to 10 seconds)'}
+                  </p>
+                </div>
+                {!error && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Please wait while we fetch your challan data from government servers
+                  </p>
+                )}
               </div>
             </div>
           )}

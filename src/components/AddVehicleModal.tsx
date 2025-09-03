@@ -98,7 +98,7 @@ const AddVehicleModal = () => {
               id="number"
               placeholder="e.g., KA 03 NC 6479"
               value={formData.number}
-              onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, number: e.target.value.toUpperCase() }))}
               className="uppercase"
             />
             <p className="text-sm text-muted-foreground">

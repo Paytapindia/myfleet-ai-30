@@ -10,7 +10,7 @@ const corsHeaders = {
 const sanitizeVehicleNumber = (input: string) =>
   input?.toString().toUpperCase().replace(/[\s-]/g, '').trim();
 
-async function fetchWithRetry(url: string, payload: any, maxRetries = 2) {
+async function fetchWithRetry(url: string, payload: any, headers: Record<string, string> = {}, maxRetries = 2) {
   let attempt = 0;
   let lastStatus: number | null = null;
   let lastError: any = null;
@@ -20,7 +20,7 @@ async function fetchWithRetry(url: string, payload: any, maxRetries = 2) {
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s per attempt
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...headers },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
@@ -194,15 +194,17 @@ console.log(`Returning cached RC data for vehicle: ${vNum}`)
 console.log(`No cached data found, calling APIClub for vehicle: ${vNum}`)
 
     // Get AWS API Gateway URL from secrets
-    const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL')
+const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL')
+const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN')
+const awsApiKey = Deno.env.get('AWS_RC_API_KEY')
     
-    if (!awsApiGatewayUrl) {
-      console.error('AWS_API_GATEWAY_URL not configured')
-      return new Response(
-        JSON.stringify({ error: 'AWS API Gateway not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+if (!awsApiGatewayUrl) {
+  console.error('AWS_API_GATEWAY_URL not configured')
+  return new Response(
+    JSON.stringify({ error: 'AWS API Gateway not configured' }),
+    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
 console.log('Calling AWS API Gateway', {
   url: awsApiGatewayUrl,
@@ -214,13 +216,22 @@ const payload = {
   vehicleId: vNum,
   rc_number: vNum,
   registrationNumber: vNum,
+  service: 'rc',
+  type: 'rc'
 }
 console.log('AWS request payload preview:', payload)
+
+const headers = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  ...(proxyToken && { 'x-proxy-token': proxyToken }),
+  ...(awsApiKey && { 'x-api-key': awsApiKey }),
+}
 
 // Call AWS API Gateway with retries
 let apiResponse: Response;
 try {
-  apiResponse = await fetchWithRetry(awsApiGatewayUrl, payload, 2);
+  apiResponse = await fetchWithRetry(awsApiGatewayUrl, payload, headers, 2);
 } catch (e) {
   const message = e instanceof Error ? e.message : String(e)
   console.error('AWS API Gateway fetch error after retries:', message)

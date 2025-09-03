@@ -83,7 +83,7 @@ exports.handler = async (event) => {
       .trim()
     const vehicleId = vehicleIdRaw
     const normalizedId = vehicleIdRaw.toUpperCase().replace(/[^A-Z0-9]/g, '')
-    const service = payload.service || 'rc' // Default to RC service for backward compatibility
+    const service = (payload.service || event?.queryStringParameters?.service || 'rc').toLowerCase() // Default to RC
 
     if (!vehicleIdRaw) {
       const errBody = { code: 400, status: 'error', message: 'vehicleId is required', response: null }

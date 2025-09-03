@@ -53,11 +53,10 @@ const handleRetry = async () => {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-8 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center space-x-1"
+          className="h-auto w-auto p-2 rounded-xl hover:bg-primary/10 transition-all duration-200 flex flex-col items-center space-y-1"
         >
-          <Car className="h-4 w-4 text-primary" strokeWidth={1.5} />
-          <span className="text-xs text-primary font-medium hidden sm:inline">DETAILS</span>
+          <Car className="h-6 w-6 text-primary" strokeWidth={1.5} />
+          <span className="text-xs text-primary font-medium">VIEW DETAILS</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end" side="bottom">

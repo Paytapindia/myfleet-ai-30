@@ -46,7 +46,7 @@ const VehicleManagerPage = () => {
         {/* Vehicle Cards Section */}
         <div className="mt-4 sm:mt-6">
           {/* Grid Layout for Vehicle Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pb-4 px-3 sm:px-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 pb-4 px-3 sm:px-0">
             {vehicles.length > 0 ? (
               vehicles.map((vehicle) => (
                 <VehicleCard key={vehicle.id} vehicle={vehicle} />

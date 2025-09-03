@@ -13,3 +13,22 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 2,
   }).format(amount)
 }
+
+export function getInsuranceStatus(expiryDate: string | null | undefined): 'active' | 'expired' | 'missing' {
+  if (!expiryDate) {
+    return 'missing'
+  }
+  
+  const expiry = new Date(expiryDate)
+  const today = new Date()
+  
+  // Set time to start of day for accurate comparison
+  today.setHours(0, 0, 0, 0)
+  expiry.setHours(0, 0, 0, 0)
+  
+  if (isNaN(expiry.getTime())) {
+    return 'missing'
+  }
+  
+  return expiry >= today ? 'active' : 'expired'
+}

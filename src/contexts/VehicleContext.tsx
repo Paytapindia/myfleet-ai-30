@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Vehicle, AddVehicleFormData } from '@/types/vehicle';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { getInsuranceStatus } from '@/lib/utils';
 
 interface VehicleContextType {
   vehicles: Vehicle[];
@@ -42,7 +43,10 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
       documents: {
         pollution: { status: 'missing' },
         registration: { status: 'missing' },
-        insurance: { status: 'missing' },
+        insurance: { 
+          status: getInsuranceStatus(row.insurance_expiry),
+          expiryDate: row.insurance_expiry 
+        },
         license: { status: 'missing' },
       },
       financialData: [],

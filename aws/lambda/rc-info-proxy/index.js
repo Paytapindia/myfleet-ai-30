@@ -91,6 +91,27 @@ exports.handler = async (event) => {
       return FORCE_200 ? ok(errBody) : response(400, errBody)
     }
 
+    // For challans service, validate all required fields
+    if (service === 'challans') {
+      const chassis = (payload.chassis || '').toString().trim()
+      const engine_no = (payload.engine_no || '').toString().trim()
+      
+      const missing = {}
+      if (!chassis) missing.chassis = true
+      if (!engine_no) missing.engine = true
+      
+      if (Object.keys(missing).length > 0) {
+        const errBody = { 
+          code: 422, 
+          status: 'error', 
+          message: 'Missing required fields for challans verification', 
+          missing,
+          response: null 
+        }
+        return FORCE_200 ? ok(errBody) : response(422, errBody)
+      }
+    }
+
     // Determine API path based on service type
     let apiPath
     if (service === 'fastag') {

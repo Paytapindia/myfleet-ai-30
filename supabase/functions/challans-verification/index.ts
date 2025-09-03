@@ -146,6 +146,63 @@ serve(async (req) => {
       );
     }
 
+    // Validate required fields for challans API
+    let chassisNumber = vehicleData.chassis_number?.trim();
+    let engineNumber = vehicleData.engine_number?.trim();
+
+    // If chassis or engine number are missing, try to fetch them via RC verification
+    if (!chassisNumber || !engineNumber) {
+      console.log(`Missing vehicle details - chassis: ${!!chassisNumber}, engine: ${!!engineNumber}. Attempting RC verification first.`);
+      
+      try {
+        const rcResponse = await supabase.functions.invoke('rc-verification', {
+          body: { vehicleNumber: vNum }
+        });
+
+        if (rcResponse.data?.success && rcResponse.data?.data) {
+          const rcData = rcResponse.data.data;
+          
+          // Update vehicle record with missing data
+          const updateData: any = { updated_at: new Date().toISOString() };
+          if (!chassisNumber && rcData.chassis_number) {
+            updateData.chassis_number = rcData.chassis_number;
+            chassisNumber = rcData.chassis_number;
+          }
+          if (!engineNumber && rcData.engine_number) {
+            updateData.engine_number = rcData.engine_number;
+            engineNumber = rcData.engine_number;
+          }
+
+          if (Object.keys(updateData).length > 1) { // More than just updated_at
+            await supabase
+              .from('vehicles')
+              .update(updateData)
+              .eq('user_id', user.id)
+              .eq('number', vNum);
+            
+            console.log(`Updated vehicle with RC data - chassis: ${!!chassisNumber}, engine: ${!!engineNumber}`);
+          }
+        }
+      } catch (rcError) {
+        console.error('RC verification failed:', rcError);
+      }
+    }
+
+    // Final validation - if still missing required fields, return error
+    if (!chassisNumber || !engineNumber) {
+      return new Response(
+        JSON.stringify({
+          error: 'Missing required vehicle details',
+          message: 'Chassis number and engine number are required for challans verification. Please ensure your vehicle is properly registered.',
+          missing: {
+            chassis: !chassisNumber,
+            engine: !engineNumber
+          }
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get AWS API Gateway URL from secrets
     const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL');
     const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN');
@@ -183,8 +240,8 @@ serve(async (req) => {
 
     const payload = {
       vehicleId: vNum,
-      chassis: vehicleData.chassis_number || '',
-      engine_no: vehicleData.engine_number || '',
+      chassis: chassisNumber,
+      engine_no: engineNumber,
       service: 'challans'
     };
     console.log('AWS request payload preview:', payload);
@@ -229,9 +286,12 @@ serve(async (req) => {
       preview: JSON.stringify(responseData).substring(0, 200)
     });
 
-    // Handle successful response
-    if (responseData.status === 'success' && responseData.response) {
-      const challansData = responseData.response;
+    // Handle successful response - check both top-level and nested body response
+    const isSuccess = responseData.status === 'success' || responseData?.body?.status === 'success';
+    const responseBody = responseData.response || responseData?.body?.response;
+    
+    if (isSuccess && responseBody) {
+      const challansData = responseBody;
       
       // Update verification record as completed
       if (verification) {

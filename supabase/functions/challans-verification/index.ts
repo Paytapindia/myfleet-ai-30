@@ -271,7 +271,7 @@ serve(async (req) => {
       );
     } else {
       // Handle API errors
-      const errorMessage = responseData.message || 'Unknown error from challans API';
+      const errorMessage = responseData?.body?.message || responseData?.message || 'Unknown error from challans API';
       console.error('Challans API error:', errorMessage);
       
       // Update verification record as failed

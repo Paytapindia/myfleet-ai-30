@@ -123,6 +123,46 @@ serve(async (req: Request) => {
   }
 });
 
+// Helper: fetch with timeout and robust parsing of Lambda responses
+const DEFAULT_TIMEOUT_MS = 15000;
+async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let rawText = '';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const status = res.status;
+    const ok = res.ok;
+    rawText = await res.text();
+    console.log(`[Lambda] Status: ${status} OK: ${ok}`);
+    console.log('[Lambda] Raw response:', rawText.slice(0, 500));
+    let parsed: any = null;
+    try { parsed = rawText ? JSON.parse(rawText) : null; } catch (_e) { parsed = null; }
+    return { status, ok, rawText, parsed };
+  } catch (e) {
+    console.error('[Lambda] Request error:', e);
+    return { status: 0, ok: false, rawText, parsed: null, error: e instanceof Error ? e.message : 'Unknown error' };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
+  const d = res.parsed;
+  if (!d) return false;
+  if (typeof d === 'object') {
+    if (d.success === true) return true;
+    if (typeof d.status === 'string' && d.status.toLowerCase() === 'success') return true;
+    if (res.ok && (d.data || d.result || d.payload)) return true;
+  }
+  return false;
+}
+
 async function handleRCVerification(supabase: any, userId: string, vehicleNumber: string) {
   try {
     // Check for cached data
@@ -169,18 +209,29 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
-    const lambdaResponse = await fetch(lambdaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
 
-    const lambdaData = await lambdaResponse.json();
+    const res = await fetchLambda(lambdaUrl, payload);
+    if (!res.parsed) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
+        status: res.status || 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const lambdaData = res.parsed;
 
-    if (!lambdaData.success) {
-      return new Response(JSON.stringify(lambdaData), {
+    if (!lambdaSucceeded(res)) {
+      // Log failed verification
+      await supabase
+        .from('rc_verifications')
+        .insert({
+          user_id: userId,
+          vehicle_number: vehicleNumber,
+          status: 'failed',
+          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
+        });
+
+      return new Response(JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }), {
+        status: res.status || 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -309,15 +360,15 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
-    const lambdaResponse = await fetch(lambdaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
 
-    const lambdaData = await lambdaResponse.json();
+    const res = await fetchLambda(lambdaUrl, payload);
+    if (!res.parsed) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
+        status: res.status || 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const lambdaData = res.parsed;
 
     if (lambdaData.success && lambdaData.data) {
       // Update verification record with success
@@ -349,7 +400,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .from('fastag_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData.error || 'Unknown error'
+          error_message: lambdaData.error || lambdaData.message || res.rawText || 'Unknown error'
         })
         .eq('id', pendingRecord.id);
     }
@@ -395,7 +446,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         await supabase
           .from('vehicles')
           .update({
-            challan_count: recentVerification.response_data.challans.length,
+            challans_count: recentVerification.response_data.challans.length,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
@@ -436,15 +487,14 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       engine_no,
     };
     console.log('Forwarding to Lambda:', payload);
-    const lambdaResponse = await fetch(lambdaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const lambdaData = await lambdaResponse.json();
+    const res = await fetchLambda(lambdaUrl, payload);
+    if (!res.parsed) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
+        status: res.status || 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const lambdaData = res.parsed;
 
     if (lambdaData.success && lambdaData.data) {
       // Update verification record with success
@@ -461,7 +511,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         await supabase
           .from('vehicles')
           .update({
-            challan_count: lambdaData.data.challans.length,
+            challans_count: lambdaData.data.challans.length,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
@@ -473,7 +523,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .from('challan_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData.error || 'Unknown error'
+          error_message: lambdaData.error || lambdaData.message || res.rawText || 'Unknown error'
         })
         .eq('id', pendingRecord.id);
     }

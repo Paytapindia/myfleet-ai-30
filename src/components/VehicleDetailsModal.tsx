@@ -46,16 +46,20 @@ const mapApiToDetails = (api: VehicleApiResponse, vehicleNumber: string): Vehicl
 const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsModalProps) => {
   const [vehicleDetails, setVehicleDetails] = useState<VehicleDetails | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && vehicleNumber) {
+      setError(null);
       setLoading(true);
       (async () => {
         const api = await fetchRcDetails(vehicleNumber);
         if (api.success) {
           setVehicleDetails(mapApiToDetails(api, vehicleNumber));
+          setError(null);
         } else {
           setVehicleDetails(null);
+          setError(api.error || 'Failed to fetch vehicle details');
           console.error('Vehicle details error:', api.error);
         }
         setLoading(false);
@@ -161,10 +165,6 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
                 </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">Failed to load vehicle details</p>
           </div>
         )}
       </DialogContent>

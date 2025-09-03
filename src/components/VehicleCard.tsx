@@ -80,8 +80,8 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg sm:text-xl font-bold text-foreground tracking-tight truncate">{vehicle.number}</h3>
-              <p className="text-sm text-muted-foreground font-medium truncate">{vehicle.model}</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">{vehicle.number}</h3>
+              <p className="text-base sm:text-lg text-muted-foreground font-medium">{vehicle.model}</p>
             </div>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 ml-2">

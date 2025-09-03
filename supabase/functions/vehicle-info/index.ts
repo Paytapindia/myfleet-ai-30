@@ -404,12 +404,9 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       await supabase
         .from('vehicles')
         .update({
-          fastag_balance: fastagData.balance,
-          fastag_linked: fastagData.linked,
-          fastag_tag_id: fastagData.tagId,
-          fastag_status: fastagData.status,
-          fastag_bank_name: fastagData.bankName,
-          fastag_last_transaction_date: fastagData.lastTransactionDate,
+          fasttag_balance: fastagData.balance,
+          fasttag_linked: fastagData.linked,
+          fasttag_last_synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
@@ -420,19 +417,61 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Update verification record with failure
+      // Lambda failed - try to fallback to any cached data
+      const { data: fallbackVerification } = await supabase
+        .from('fastag_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Update pending record with failure
       await supabase
         .from('fastag_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
+          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Timeout/Network error',
         })
         .eq('id', pendingRecord.id);
 
-      return new Response(
-        JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }),
-        { status: res.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (fallbackVerification && fallbackVerification.response_data) {
+        console.log('Using stale FASTag data as fallback');
+        
+        // Update vehicle with stale data
+        await supabase
+          .from('vehicles')
+          .update({
+            fasttag_balance: fallbackVerification.response_data.balance || 0,
+            fasttag_linked: fallbackVerification.response_data.linked || false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+          .eq('number', vehicleNumber);
+
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Live verification failed, showing cached data',
+          details: lambdaData?.error || 'Service temporarily unavailable',
+          data: fallbackVerification.response_data,
+          cached: true,
+          verifiedAt: fallbackVerification.created_at
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: false,
+        error: lambdaData?.error || lambdaData?.message || 'Service temporarily unavailable',
+        details: res.rawText?.slice(0, 500) || 'Network timeout - please try again'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
   } catch (error) {

@@ -166,6 +166,10 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
               </div>
             </div>
           </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">{error || 'Failed to load vehicle details'}</p>
+          </div>
         )}
       </DialogContent>
     </Dialog>

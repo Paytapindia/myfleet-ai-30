@@ -507,50 +507,73 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       engine_no,
     };
     console.log('Forwarding to Lambda:', payload);
-    const res = await fetchLambda(lambdaUrl, payload);
+    // Increase timeout for challans (can be slower upstream)
+    const res = await fetchLambda(lambdaUrl, payload, 30000);
     if (!res.parsed) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
-        status: res.status || 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
+        {
+          status: res.status || 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
     const lambdaData = res.parsed;
 
-    if (lambdaData.success && lambdaData.data) {
+    if (lambdaSucceeded(res)) {
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+      const challansArray = Array.isArray(r.challans)
+        ? r.challans
+        : Array.isArray(r.data)
+        ? r.data
+        : Array.isArray(r.results)
+        ? r.results
+        : [];
+
+      const challansData = {
+        challans: challansArray,
+        vehicleNumber,
+        count: Array.isArray(challansArray) ? challansArray.length : 0,
+      };
+
       // Update verification record with success
       await supabase
         .from('challan_verifications')
         .update({
           status: 'completed',
-          response_data: lambdaData.data
+          response_data: challansData,
         })
         .eq('id', pendingRecord.id);
 
       // Update vehicle with challan count
-      if (lambdaData.data.challans) {
-        await supabase
-          .from('vehicles')
-          .update({
-            challans_count: lambdaData.data.challans.length,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('number', vehicleNumber);
-      }
+      await supabase
+        .from('vehicles')
+        .update({
+          challans_count: challansData.count,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('number', vehicleNumber);
+
+      return new Response(
+        JSON.stringify({ success: true, data: challansData, cached: false, verifiedAt: new Date().toISOString() }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
       // Update verification record with failure
       await supabase
         .from('challan_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData.error || lambdaData.message || res.rawText || 'Unknown error'
+          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
         })
         .eq('id', pendingRecord.id);
-    }
 
-    return new Response(JSON.stringify(lambdaData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      return new Response(
+        JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }),
+        { status: res.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error) {
     console.error('Challans verification error:', error);

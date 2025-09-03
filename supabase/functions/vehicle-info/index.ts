@@ -400,16 +400,13 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         })
         .eq('id', pendingRecord.id);
 
-      // Update vehicle with fresh data
+      // Update vehicle with correct FASTag data (only update existing columns)
       await supabase
         .from('vehicles')
         .update({
-          fastag_balance: fastagData.balance,
-          fastag_linked: fastagData.linked,
-          fastag_tag_id: fastagData.tagId,
-          fastag_status: fastagData.status,
-          fastag_bank_name: fastagData.bankName,
-          fastag_last_transaction_date: fastagData.lastTransactionDate,
+          fasttag_balance: fastagData.balance || 0,
+          fasttag_linked: fastagData.status?.toLowerCase() === 'active',
+          fasttag_last_synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)

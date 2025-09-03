@@ -6,12 +6,13 @@ import { getInsuranceStatus } from '@/lib/utils';
 
 interface VehicleContextType {
   vehicles: Vehicle[];
-  addVehicle: (vehicleData: AddVehicleFormData) => Promise<void>;
-  removeVehicle: (vehicleId: string) => Promise<void>;
+  isLoading: boolean;
+  addVehicle: (data: AddVehicleFormData) => Promise<void>;
+  removeVehicle: (id: string) => Promise<void>;
   updateVehicle: (vehicleId: string, updates: Partial<Vehicle>) => Promise<void>;
   assignDriverToVehicle: (vehicleId: string, driverId: string) => Promise<void>;
   unassignDriverFromVehicle: (vehicleId: string, driverId: string) => Promise<void>;
-  isLoading: boolean;
+  refreshVehicles: () => Promise<void>;
 }
 
 const VehicleContext = createContext<VehicleContextType | undefined>(undefined);
@@ -233,6 +234,7 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateVehicle,
         assignDriverToVehicle,
         unassignDriverFromVehicle,
+        refreshVehicles,
         isLoading,
       }}
     >

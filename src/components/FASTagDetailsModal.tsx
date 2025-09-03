@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { verifyFastag, FastagVerificationResponse } from "@/api/fastagApi";
 import { useToast } from "@/hooks/use-toast";
+import { useVehicles } from "@/contexts/VehicleContext";
 
 interface FASTagDetailsModalProps {
   open: boolean;
@@ -31,6 +32,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
   const [fastagData, setFastagData] = useState<FastagVerificationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { refreshVehicles } = useVehicles();
 
   const fetchFastagData = async () => {
     setIsLoading(true);
@@ -43,6 +45,14 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
           title: "Error",
           description: result.error || "Failed to fetch FASTag details",
           variant: "destructive"
+        });
+      } else {
+        // Refresh vehicle data to sync FASTag status on vehicle card
+        await refreshVehicles();
+        toast({
+          title: "Success",
+          description: "FASTag details updated successfully",
+          variant: "default"
         });
       }
     } catch (error) {

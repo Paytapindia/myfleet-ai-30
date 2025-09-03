@@ -57,7 +57,7 @@ export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promi
       
       return {
         success: false,
-        error: 'Failed to verify FASTag - This may take up to 10 seconds',
+        error: 'Failed to verify FASTag - This may take up to 30 seconds',
         details: error.message
       };
     }
@@ -75,7 +75,7 @@ export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promi
     
     return {
       success: false,
-      error: 'Network timeout - Request takes up to 10 seconds',
+      error: 'Network timeout - Request may take up to 30 seconds',
       details: error instanceof Error ? error.message : 'Unknown error'
     };
   }

@@ -361,7 +361,13 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     };
     console.log('Forwarding to Lambda:', payload);
 
-    const res = await fetchLambda(lambdaUrl, payload);
+    // Increase timeout for FASTag (can be slower upstream) and add a single retry for 502/timeout
+    let res = await fetchLambda(lambdaUrl, payload, 30000);
+    if ((!res.parsed || !lambdaSucceeded(res)) && (res.status === 502 || res.status === 0)) {
+      console.log('[FASTag] Retrying once after timeout/502...');
+      await new Promise((r) => setTimeout(r, 1500));
+      res = await fetchLambda(lambdaUrl, payload, 30000);
+    }
     if (!res.parsed) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),

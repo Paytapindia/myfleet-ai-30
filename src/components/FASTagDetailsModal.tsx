@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,9 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
             <LinkIcon className="h-5 w-5 text-primary" />
             FASTag Details - {vehicleNumber}
           </DialogTitle>
+          <DialogDescription>
+            Live verification may take up to 30 seconds. Cached data will be shown if available.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -121,7 +125,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                 </div>
               </CardContent>
             </Card>
-          ) : !fastagData.success ? (
+) : (!fastagData.success && !fastagData.data) ? (
             <Card>
               <CardContent className="flex items-center justify-center py-8">
                 <div className="text-center">

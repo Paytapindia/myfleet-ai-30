@@ -274,7 +274,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         user_id: userId,
         vehicle_number: vehicleNumber,
         status: 'completed',
-        response_data: lambdaData.data
+        verification_data: lambdaData.data
       });
 
     return new Response(JSON.stringify(lambdaData), {
@@ -310,15 +310,15 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       .limit(1)
       .single();
 
-    if (recentVerification && recentVerification.response_data) {
+    if (recentVerification && recentVerification.verification_data) {
       console.log('Returning cached FASTag data');
       
       // Update vehicle with cached data - FIXED: Use correct fasttag_* column names
       await supabase
         .from('vehicles')
         .update({
-          fasttag_balance: recentVerification.response_data.balance || 0,
-          fasttag_linked: recentVerification.response_data.linked || false,
+          fasttag_balance: recentVerification.verification_data.balance || 0,
+          fasttag_linked: recentVerification.verification_data.linked || false,
           fasttag_last_synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -327,7 +327,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
 
       return new Response(JSON.stringify({
         success: true,
-        data: recentVerification.response_data,
+        data: recentVerification.verification_data,
         cached: true,
         verifiedAt: recentVerification.created_at
       }), {
@@ -408,7 +408,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           .single();
       }
       
-      if (fallbackData.data && fallbackData.data.response_data) {
+      if (fallbackData.data && fallbackData.data.verification_data) {
         console.log('[FASTag] Using historical fallback data');
         const dataAge = Date.now() - new Date(fallbackData.data.created_at).getTime();
         const ageHours = Math.floor(dataAge / (1000 * 60 * 60));
@@ -417,8 +417,8 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         await supabase
           .from('vehicles')
           .update({
-            fasttag_balance: fallbackData.data.response_data.balance || 0,
-            fasttag_linked: fallbackData.data.response_data.linked || false,
+            fasttag_balance: fallbackData.data.verification_data.balance || 0,
+            fasttag_linked: fallbackData.data.verification_data.linked || false,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
@@ -428,7 +428,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           success: false,
           error: 'Live verification failed, showing historical data',
           details: `Data is ${ageHours} hours old - service temporarily unavailable`,
-          data: fallbackData.data.response_data,
+          data: fallbackData.data.verification_data,
           cached: true,
           verifiedAt: fallbackData.data.created_at,
           dataAge: `${ageHours} hours ago`
@@ -466,7 +466,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .from('fastag_verifications')
         .update({
           status: 'completed',
-          response_data: fastagData,
+          verification_data: fastagData,
         })
         .eq('id', pendingRecord.id);
 
@@ -507,15 +507,15 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         })
         .eq('id', pendingRecord.id);
 
-      if (fallbackVerification && fallbackVerification.response_data) {
+      if (fallbackVerification && fallbackVerification.verification_data) {
         console.log('Using stale FASTag data as fallback');
         
         // Update vehicle with stale data
         await supabase
           .from('vehicles')
           .update({
-            fasttag_balance: fallbackVerification.response_data.balance || 0,
-            fasttag_linked: fallbackVerification.response_data.linked || false,
+            fasttag_balance: fallbackVerification.verification_data.balance || 0,
+            fasttag_linked: fallbackVerification.verification_data.linked || false,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId)
@@ -525,7 +525,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           success: false,
           error: 'Live verification failed, showing cached data',
           details: lambdaData?.error || 'Service temporarily unavailable',
-          data: fallbackVerification.response_data,
+          data: fallbackVerification.verification_data,
           cached: true,
           verifiedAt: fallbackVerification.created_at
         }), {
@@ -560,7 +560,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .limit(1)
         .single();
         
-      if (emergencyFallback && emergencyFallback.response_data) {
+      if (emergencyFallback && emergencyFallback.verification_data) {
         console.log('[FASTag] Emergency fallback to any available data');
         const dataAge = Date.now() - new Date(emergencyFallback.created_at).getTime();
         const ageHours = Math.floor(dataAge / (1000 * 60 * 60));
@@ -569,7 +569,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           success: false,
           error: 'System error occurred, showing last known data',
           details: `Data is ${ageHours} hours old`,
-          data: emergencyFallback.response_data,
+          data: emergencyFallback.verification_data,
           cached: true,
           verifiedAt: emergencyFallback.created_at,
           dataAge: `${ageHours} hours ago`
@@ -609,15 +609,15 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       .limit(1)
       .single();
 
-    if (recentVerification && recentVerification.response_data) {
+    if (recentVerification && recentVerification.verification_data) {
       console.log('Returning cached Challans data');
       
       // Update vehicle with cached challan count
-      if (recentVerification.response_data.challans) {
+      if (recentVerification.verification_data.challans) {
         await supabase
           .from('vehicles')
           .update({
-            challans_count: recentVerification.response_data.challans.length,
+            challans_count: recentVerification.verification_data.challans.length,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
@@ -626,7 +626,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
 
       return new Response(JSON.stringify({
         success: true,
-        data: recentVerification.response_data,
+        data: recentVerification.verification_data,
         cached: true,
         verifiedAt: recentVerification.created_at
       }), {
@@ -692,7 +692,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .from('challan_verifications')
         .update({
           status: 'completed',
-          response_data: challansData,
+          verification_data: challansData,
         })
         .eq('id', pendingRecord.id);
 

@@ -25,13 +25,23 @@ export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promi
   try {
     console.log(`FASTag verification attempt ${retryCount + 1} for vehicle: ${vehicleNumber}`);
     
+    // Get user session for auth header
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        details: 'Please log in to verify FASTag'
+      };
+    }
+    
     const { data, error } = await supabase.functions.invoke('vehicle-info', {
       body: {
         type: 'fastag',
         vehicleId: vehicleNumber
       },
       headers: {
-        'x-timeout': '15000' // 15 second timeout
+        'Authorization': `Bearer ${session.access_token}`
       }
     });
 

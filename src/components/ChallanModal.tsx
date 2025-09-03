@@ -70,6 +70,14 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         throw new Error('Chassis and engine numbers not available. Please verify RC details first.');
       }
       
+      // Get user session for auth header
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError('Authentication required. Please log in.');
+        setIsLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke('vehicle-info', {
         body: {
           type: 'challan',
@@ -78,7 +86,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           engine_no: vehicle.engine_number
         },
         headers: {
-          'x-timeout': '15000' // 15 second timeout
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
 

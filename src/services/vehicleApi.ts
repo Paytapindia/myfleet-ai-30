@@ -45,8 +45,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
         vehicleId: vehicleNumber
       },
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'x-timeout': '15000' // 15 second timeout
+        'Authorization': `Bearer ${session.access_token}`
       }
     });
 

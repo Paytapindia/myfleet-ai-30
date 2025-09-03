@@ -400,13 +400,16 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         })
         .eq('id', pendingRecord.id);
 
-      // Update vehicle with correct FASTag data (only update existing columns)
+      // Update vehicle with fresh data
       await supabase
         .from('vehicles')
         .update({
-          fasttag_balance: fastagData.balance || 0,
-          fasttag_linked: fastagData.status?.toLowerCase() === 'active',
-          fasttag_last_synced_at: new Date().toISOString(),
+          fastag_balance: fastagData.balance,
+          fastag_linked: fastagData.linked,
+          fastag_tag_id: fastagData.tagId,
+          fastag_status: fastagData.status,
+          fastag_bank_name: fastagData.bankName,
+          fastag_last_transaction_date: fastagData.lastTransactionDate,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
@@ -580,60 +583,12 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
 
   } catch (error) {
     console.error('Challans verification error:', error);
-    
-    // On timeout/network errors, try to fallback to any cached data (even if older)
-    if (error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT') || error.message?.includes('network')) {
-      console.log('Attempting fallback to any cached challan data due to timeout');
-      
-      // Try to get the most recent completed verification (even if older than 30 min)
-      const { data: fallbackData } = await supabase
-        .from('challan_verifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('vehicle_number', vehicleNumber)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (fallbackData && fallbackData.response_data) {
-        console.log('Returning stale cached Challans data due to timeout');
-        
-        // Update vehicle with cached challan count
-        if (fallbackData.response_data.challans) {
-          await supabase
-            .from('vehicles')
-            .update({
-              challans_count: fallbackData.response_data.challans.length,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('number', vehicleNumber);
-        }
-
-        return new Response(JSON.stringify({
-          success: true,
-          data: fallbackData.response_data,
-          cached: true,
-          stale: true,
-          verifiedAt: fallbackData.created_at,
-          message: 'Showing cached data due to server timeout'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-    
-    // Return 200 with error info to prevent FunctionsHttpError
     return new Response(JSON.stringify({
       success: false,
-      error: 'Challans service temporarily unavailable',
-      details: error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT') 
-        ? 'Government servers are currently slow. Please try again in a few minutes.'
-        : 'Please try again later.',
-      timeout: error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT')
+      error: 'Challans verification failed',
+      details: error.message
     }), {
-      status: 200, // Return 200 to prevent FunctionsHttpError
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

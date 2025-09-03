@@ -122,6 +122,30 @@ serve(async (req) => {
 
     console.log(`No cached data found, calling APIClub for vehicle challans: ${vNum}`);
 
+    // Get vehicle details (chassis and engine number) from database
+    const { data: vehicleData, error: vehicleError } = await supabase
+      .from('vehicles')
+      .select('chassis_number, engine_number')
+      .eq('user_id', user.id)
+      .eq('number', vNum)
+      .single();
+
+    if (vehicleError && vehicleError.code !== 'PGRST116') {
+      console.error('Error fetching vehicle details:', vehicleError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch vehicle details' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!vehicleData) {
+      console.error('Vehicle not found in database');
+      return new Response(
+        JSON.stringify({ error: 'Vehicle not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get AWS API Gateway URL from secrets
     const awsApiGatewayUrl = Deno.env.get('AWS_API_GATEWAY_URL');
     const proxyToken = Deno.env.get('SHARED_PROXY_TOKEN');
@@ -137,7 +161,9 @@ serve(async (req) => {
 
     console.log('Calling AWS API Gateway for challans', {
       url: awsApiGatewayUrl,
-      vehicleNumber: vNum
+      vehicleNumber: vNum,
+      hasChassisNumber: !!vehicleData.chassis_number,
+      hasEngineNumber: !!vehicleData.engine_number
     });
 
     // Create pending verification record
@@ -157,10 +183,9 @@ serve(async (req) => {
 
     const payload = {
       vehicleId: vNum,
-      vehicle_number: vNum,
-      registrationNumber: vNum,
-      service: 'challans',
-      type: 'challans'
+      chassis: vehicleData.chassis_number || '',
+      engine_no: vehicleData.engine_number || '',
+      service: 'challans'
     };
     console.log('AWS request payload preview:', payload);
 

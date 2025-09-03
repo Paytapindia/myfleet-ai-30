@@ -48,6 +48,7 @@ exports.handler = async (event) => {
   const BASE_URL = process.env.APICLUB_BASE_URL || 'https://uat.apiclub.in'
   const RC_PATH = process.env.APICLUB_RC_PATH || '/api/v1/rc_info'
   const FASTAG_PATH = process.env.APICLUB_FASTAG_PATH || '/api/v1/fastag_info'
+  const CHALLANS_PATH = process.env.APICLUB_CHALLANS_PATH || '/api/v1/challan_info_v2'
 
   try {
     if (!API_KEY) {
@@ -94,6 +95,8 @@ exports.handler = async (event) => {
     let apiPath
     if (service === 'fastag') {
       apiPath = FASTAG_PATH
+    } else if (service === 'challans') {
+      apiPath = CHALLANS_PATH
     } else {
       apiPath = RC_PATH // Default to RC
     }
@@ -115,7 +118,11 @@ exports.handler = async (event) => {
           // Provide a referer if required by APIClub docs/examples
           'Referer': 'docs.apiclub.in'
         },
-        body: JSON.stringify({ vehicleId: normalizedId }),
+        body: JSON.stringify(service === 'challans' ? {
+          vehicleId: normalizedId,
+          chassis: payload.chassis || '',
+          engine_no: payload.engine_no || ''
+        } : { vehicleId: normalizedId }),
         signal: controller.signal
       })
     } finally {

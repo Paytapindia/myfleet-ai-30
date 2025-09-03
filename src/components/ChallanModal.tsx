@@ -61,17 +61,17 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
       if (data?.success && data?.data) {
         const challansData = data.data;
         
-        // Parse challans from API response
+        // Parse challans from APIClub response format
         if (challansData.challans && Array.isArray(challansData.challans)) {
           const parsedChallans: Challan[] = challansData.challans.map((challan: any) => ({
-            id: challan.id || challan.challanNumber || `ch-${Math.random()}`,
-            challanNumber: challan.challanNumber || challan.number || 'N/A',
-            amount: parseFloat(challan.amount || challan.fine_amount || '0'),
-            issueDate: challan.issueDate || challan.date || new Date().toISOString().split('T')[0],
-            location: challan.location || challan.place || 'Unknown',
-            violation: challan.violation || challan.offense || 'Traffic Violation',
-            status: challan.status === 'paid' ? 'paid' : 'pending',
-            dueDate: challan.dueDate || challan.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            id: challan.challan_no || `ch-${Math.random()}`,
+            challanNumber: challan.challan_no || 'N/A',
+            amount: parseFloat(challan.amount || '0'),
+            issueDate: challan.date || new Date().toISOString().split('T')[0],
+            location: challan.area || challan.state || 'Unknown',
+            violation: challan.offence || 'Traffic Violation',
+            status: challan.challan_status === 'Cash' || challan.challan_status === 'Disposed' ? 'paid' : 'pending',
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             vehicleNumber: vehicleNum
           }));
           

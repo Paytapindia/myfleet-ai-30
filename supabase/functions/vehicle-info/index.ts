@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req: Request) => {
@@ -46,7 +47,15 @@ serve(async (req: Request) => {
       });
     }
 
-    const { type, vehicleNumber, vehicleId, chassis, engine_no } = await req.json();
+    const rawBody = await req.json().catch(() => null);
+    if (!rawBody) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON in request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log('Incoming request body:', rawBody);
+    const { type, vehicleNumber, vehicleId, chassis, engine_no } = rawBody;
 
     // Validate request
     if (!type || !(vehicleNumber || vehicleId)) {
@@ -155,16 +164,17 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       throw new Error('LAMBDA_URL not configured');
     }
 
+    const payload = {
+      type: 'rc',
+      vehicleId: vehicleNumber,
+    };
+    console.log('Forwarding to Lambda:', payload);
     const lambdaResponse = await fetch(lambdaUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        type: 'rc',
-        service: 'rc',
-        vehicleId: vehicleNumber
-      }),
+      body: JSON.stringify(payload),
     });
 
     const lambdaData = await lambdaResponse.json();
@@ -294,16 +304,17 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       throw new Error('LAMBDA_URL not configured');
     }
 
+    const payload = {
+      type: 'fastag',
+      vehicleId: vehicleNumber,
+    };
+    console.log('Forwarding to Lambda:', payload);
     const lambdaResponse = await fetch(lambdaUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        type: 'fastag',
-        service: 'fastag',
-        vehicleId: vehicleNumber
-      }),
+      body: JSON.stringify(payload),
     });
 
     const lambdaData = await lambdaResponse.json();
@@ -418,18 +429,19 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       throw new Error('LAMBDA_URL not configured');
     }
 
+    const payload = {
+      type: 'challan',
+      vehicleId: vehicleNumber,
+      chassis,
+      engine_no,
+    };
+    console.log('Forwarding to Lambda:', payload);
     const lambdaResponse = await fetch(lambdaUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        type: 'challan',
-        service: 'challan',
-        vehicleId: vehicleNumber,
-        chassis: chassis,
-        engine_no: engine_no
-      }),
+      body: JSON.stringify(payload),
     });
 
     const lambdaData = await lambdaResponse.json();

@@ -17,6 +17,7 @@ export interface FastagVerificationResponse {
   verifiedAt?: string;
   error?: string;
   details?: string;
+  dataAge?: string; // Added for Phase 4: Show data age in UI
 }
 
 export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promise<FastagVerificationResponse> => {

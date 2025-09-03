@@ -39,11 +39,33 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
       const result = await verifyFastag(vehicleNumber);
       setFastagData(result);
       
-      if (!result.success) {
+      // Phase 4: Enhanced UX - Show appropriate messages for different scenarios
+      if (!result.success && !result.data) {
         toast({
-          title: "Error",
+          title: "Verification Failed",
           description: result.error || "Failed to fetch FASTag details",
           variant: "destructive"
+        });
+      } else if (!result.success && result.data) {
+        // Show cached data with warning
+        toast({
+          title: "Live data unavailable",
+          description: `Showing cached data${result.dataAge ? ` from ${result.dataAge}` : ''}`,
+          variant: "default"
+        });
+      } else if (result.success && result.cached) {
+        // Successfully got cached data
+        toast({
+          title: "FASTag verified",
+          description: `Using cached data${result.dataAge ? ` from ${result.dataAge}` : ''}`,
+          variant: "default"
+        });
+      } else {
+        // Fresh live data
+        toast({
+          title: "FASTag verified",
+          description: "Live data retrieved successfully",
+          variant: "default"
         });
       }
     } catch (error) {
@@ -107,9 +129,15 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
           {isLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Fetching FASTag details...</span>
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Connecting to FASTag service...</span>
+                  </div>
+                  <div className="text-center text-sm text-muted-foreground">
+                    <p>This may take up to 30 seconds</p>
+                    <p>Cached data will be shown if available</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -125,7 +153,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                 </div>
               </CardContent>
             </Card>
-) : (!fastagData.success && !fastagData.data) ? (
+           ) : (!fastagData.success && !fastagData.data) ? (
             <Card>
               <CardContent className="flex items-center justify-center py-8">
                 <div className="text-center">
@@ -151,12 +179,12 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">FASTag Status</CardTitle>
-                  {fastagData.cached && (
-                    <Badge variant="secondary" className="w-fit">
-                      <Clock className="h-3 w-3 mr-1" />
-                      Cached Data (Last 24h)
-                    </Badge>
-                  )}
+                   {fastagData.cached && (
+                     <Badge variant={fastagData.dataAge ? "outline" : "secondary"} className="w-fit">
+                       <Clock className="h-3 w-3 mr-1" />
+                       {fastagData.dataAge ? `Cached: ${fastagData.dataAge}` : 'Cached Data (Recent)'}
+                     </Badge>
+                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -251,12 +279,15 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                         }
                       </p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Data Source</p>
-                      <p className="font-medium">
-                        {fastagData.cached ? 'Cached (Recent)' : 'Live Verification'}
-                      </p>
-                    </div>
+                     <div>
+                       <p className="text-muted-foreground">Data Source</p>
+                       <p className="font-medium">
+                         {fastagData.cached 
+                           ? (fastagData.dataAge ? `Cached (${fastagData.dataAge})` : 'Cached (Recent)')
+                           : 'Live Verification'
+                         }
+                       </p>
+                     </div>
                   </div>
                   
                   <Button 

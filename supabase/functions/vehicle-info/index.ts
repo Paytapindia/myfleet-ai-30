@@ -313,16 +313,13 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     if (recentVerification && recentVerification.response_data) {
       console.log('Returning cached FASTag data');
       
-      // Update vehicle with cached data
+      // Update vehicle with cached data - FIXED: Use correct fasttag_* column names
       await supabase
         .from('vehicles')
         .update({
-          fastag_balance: recentVerification.response_data.balance,
-          fastag_linked: recentVerification.response_data.linked,
-          fastag_tag_id: recentVerification.response_data.tagId,
-          fastag_status: recentVerification.response_data.status,
-          fastag_bank_name: recentVerification.response_data.bankName,
-          fastag_last_transaction_date: recentVerification.response_data.lastTransactionDate,
+          fasttag_balance: recentVerification.response_data.balance || 0,
+          fasttag_linked: recentVerification.response_data.linked || false,
+          fasttag_last_synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
@@ -361,21 +358,94 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     };
     console.log('Forwarding to Lambda:', payload);
 
-    // Increase timeout for FASTag (can be slower upstream) and add a single retry for 502/timeout
+    // Enhanced retry logic with exponential backoff - Phase 3 implementation
     let res = await fetchLambda(lambdaUrl, payload, 30000);
-    if ((!res.parsed || !lambdaSucceeded(res)) && (res.status === 502 || res.status === 0)) {
-      console.log('[FASTag] Retrying once after timeout/502...');
-      await new Promise((r) => setTimeout(r, 1500));
-      res = await fetchLambda(lambdaUrl, payload, 30000);
+    
+    // Retry up to 2 times with exponential backoff for timeouts/502s
+    const maxRetries = 2;
+    let retryDelay = 1000; // Start with 1 second
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      if (res.parsed && lambdaSucceeded(res)) break;
+      
+      if (res.status === 502 || res.status === 0 || !res.parsed) {
+        console.log(`[FASTag] Retry ${attempt}/${maxRetries} after ${retryDelay}ms delay...`);
+        await new Promise((r) => setTimeout(r, retryDelay));
+        res = await fetchLambda(lambdaUrl, payload, 30000);
+        retryDelay *= 2; // Exponential backoff: 1s, 2s
+      } else {
+        break; // Don't retry on other errors
+      }
     }
+    // Phase 2: Progressive fallback - always return 200 with error details
     if (!res.parsed) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
-        {
-          status: res.status || 502,
+      console.log('[FASTag] Lambda returned invalid response, checking for fallback data...');
+      
+      // Try progressive fallback: 6-hour cache → any historical data
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+      
+      let fallbackData = await supabase
+        .from('fastag_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .gte('created_at', sixHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      // If no 6-hour cache, try any historical data
+      if (!fallbackData.data) {
+        fallbackData = await supabase
+          .from('fastag_verifications')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('vehicle_number', vehicleNumber)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+      }
+      
+      if (fallbackData.data && fallbackData.data.response_data) {
+        console.log('[FASTag] Using historical fallback data');
+        const dataAge = Date.now() - new Date(fallbackData.data.created_at).getTime();
+        const ageHours = Math.floor(dataAge / (1000 * 60 * 60));
+        
+        // Update vehicle with fallback data
+        await supabase
+          .from('vehicles')
+          .update({
+            fasttag_balance: fallbackData.data.response_data.balance || 0,
+            fasttag_linked: fallbackData.data.response_data.linked || false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('number', vehicleNumber);
+        
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Live verification failed, showing historical data',
+          details: `Data is ${ageHours} hours old - service temporarily unavailable`,
+          data: fallbackData.data.response_data,
+          cached: true,
+          verifiedAt: fallbackData.data.created_at,
+          dataAge: `${ageHours} hours ago`
+        }), {
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Service temporarily unavailable', 
+        details: 'No cached data available - please try again later'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     const lambdaData = res.parsed;
 
@@ -476,12 +546,48 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
 
   } catch (error) {
     console.error('FASTag verification error:', error);
+    
+    // Phase 2: Graceful error handling - always return 200
+    // Try to get any cached data as last resort
+    try {
+      const { data: emergencyFallback } = await supabase
+        .from('fastag_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (emergencyFallback && emergencyFallback.response_data) {
+        console.log('[FASTag] Emergency fallback to any available data');
+        const dataAge = Date.now() - new Date(emergencyFallback.created_at).getTime();
+        const ageHours = Math.floor(dataAge / (1000 * 60 * 60));
+        
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'System error occurred, showing last known data',
+          details: `Data is ${ageHours} hours old`,
+          data: emergencyFallback.response_data,
+          cached: true,
+          verifiedAt: emergencyFallback.created_at,
+          dataAge: `${ageHours} hours ago`
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } catch (fallbackError) {
+      console.error('Emergency fallback also failed:', fallbackError);
+    }
+    
     return new Response(JSON.stringify({
       success: false,
-      error: 'FASTag verification failed',
-      details: error.message
+      error: 'System temporarily unavailable',
+      details: 'Please try again in a few minutes'
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

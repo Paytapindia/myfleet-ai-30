@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { FastagVerificationResponse, FastagData } from "@/api/fastagApi";
+import type { Database, Json } from "@/integrations/supabase/types";
 
 export interface SaveFastagManualInput {
   status?: string;
@@ -28,15 +29,17 @@ export const saveFastagManual = async (
     };
 
     // Insert a completed verification record
+    const row: Database['public']['Tables']['fastag_verifications']['Insert'] = {
+      user_id: user.id,
+      vehicle_number: vehicleNumber,
+      status: 'completed',
+      verification_data: normalized as unknown as Json,
+      is_cached: true,
+    };
+
     const { error: insertErr } = await supabase
       .from('fastag_verifications')
-      .insert({
-        user_id: user.id,
-        vehicle_number: vehicleNumber,
-        status: 'completed',
-        verification_data: normalized,
-        is_cached: true,
-      });
+      .insert(row);
 
     if (insertErr) {
       console.error('saveFastagManual insert error:', insertErr);

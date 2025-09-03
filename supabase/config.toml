@@ -24,3 +24,6 @@ verify_jwt = true
 
 [functions.cashfree-verify-order]
 # Uses default verify_jwt (true). Change to false if you call it publicly from client.
+
+[functions.vehicle-info]
+verify_jwt = true

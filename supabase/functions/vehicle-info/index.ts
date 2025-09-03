@@ -162,7 +162,8 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       },
       body: JSON.stringify({
         type: 'rc',
-        vehicleNumber: vehicleNumber
+        service: 'rc',
+        vehicleId: vehicleNumber
       }),
     });
 
@@ -300,7 +301,8 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       },
       body: JSON.stringify({
         type: 'fastag',
-        vehicleNumber: vehicleNumber
+        service: 'fastag',
+        vehicleId: vehicleNumber
       }),
     });
 
@@ -423,7 +425,8 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       },
       body: JSON.stringify({
         type: 'challans',
-        vehicleNumber: vehicleNumber,
+        service: 'challans',
+        vehicleId: vehicleNumber,
         chassis: chassis,
         engine_no: engine_no
       }),

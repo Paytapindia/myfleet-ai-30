@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.fastag-verification]
 verify_jwt = true
 
+[functions.challans-verification]
+verify_jwt = true
+
 # Keep existing functions working with defaults
 [functions.cashfree-create-order]
 # Uses default verify_jwt (true). Change to false if you call it publicly from client.

@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { AlertTriangle, CreditCard, MapPin, Calendar, IndianRupee, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CreditCard, MapPin, Calendar, IndianRupee, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 interface Challan {
   id: string;
@@ -35,55 +36,73 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
   const [challans, setChallans] = useState<Challan[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [payingChallan, setPayingChallan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock challans data - replace with actual API call
-  const mockChallans: Challan[] = [
-    {
-      id: '1',
-      challanNumber: 'CH001234567',
-      amount: 1500,
-      issueDate: '2024-01-15',
-      location: 'MG Road, Bangalore',
-      violation: 'Over Speeding',
-      status: 'pending',
-      dueDate: '2024-02-15',
-      vehicleNumber: vehicleNumber
-    },
-    {
-      id: '2',
-      challanNumber: 'CH001234568',
-      amount: 500,
-      issueDate: '2024-01-20',
-      location: 'Brigade Road, Bangalore',
-      violation: 'Improper Parking',
-      status: 'pending',
-      dueDate: '2024-02-20',
-      vehicleNumber: vehicleNumber
-    }
-  ];
-
-  const fetchChallans = async () => {
+  // Function to fetch challans from API
+  const fetchChallans = async (vehicleNum: string) => {
+    if (!vehicleNum) return;
+    
     setIsLoading(true);
+    setError(null);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`Fetching challans for vehicle: ${vehicleNum}`);
       
-      // Filter mock data by vehicle number and take only the count
-      const vehicleChallans = mockChallans
-        .filter(challan => challan.vehicleNumber === vehicleNumber)
-        .slice(0, challanCount);
-      
-      setChallans(vehicleChallans);
-    } catch (error) {
-      toast.error('Failed to fetch challans');
+      const { data, error } = await supabase.functions.invoke('challans-verification', {
+        body: { vehicleNumber: vehicleNum }
+      });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to fetch challans');
+      }
+
+      console.log('Challans API response:', data);
+
+      if (data?.success && data?.data) {
+        const challansData = data.data;
+        
+        // Parse challans from API response
+        if (challansData.challans && Array.isArray(challansData.challans)) {
+          const parsedChallans: Challan[] = challansData.challans.map((challan: any) => ({
+            id: challan.id || challan.challanNumber || `ch-${Math.random()}`,
+            challanNumber: challan.challanNumber || challan.number || 'N/A',
+            amount: parseFloat(challan.amount || challan.fine_amount || '0'),
+            issueDate: challan.issueDate || challan.date || new Date().toISOString().split('T')[0],
+            location: challan.location || challan.place || 'Unknown',
+            violation: challan.violation || challan.offense || 'Traffic Violation',
+            status: challan.status === 'paid' ? 'paid' : 'pending',
+            dueDate: challan.dueDate || challan.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            vehicleNumber: vehicleNum
+          }));
+          
+          setChallans(parsedChallans);
+          
+          if (data.cached) {
+            toast.success('Challans loaded from cache');
+          } else {
+            toast.success('Challans fetched successfully');
+          }
+        } else {
+          // No challans found
+          setChallans([]);
+          toast.info('No challans found for this vehicle');
+        }
+      } else {
+        throw new Error(data?.error || 'Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Error fetching challans:', error);
+      setError(error.message || 'Failed to fetch challans');
+      setChallans([]);
+      toast.error(error.message || 'Failed to fetch challans');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (open) {
-      fetchChallans();
+    if (open && vehicleNumber) {
+      fetchChallans(vehicleNumber);
     }
   }, [open, vehicleNumber]);
 
@@ -173,14 +192,28 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">Loading challans...</p>
               </div>
             </div>
           )}
 
+          {/* Error State */}
+          {!isLoading && error && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Error Loading Challans</h3>
+                <p className="text-muted-foreground text-center mb-4">{error}</p>
+                <Button onClick={() => fetchChallans(vehicleNumber)} variant="outline">
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* No Challans */}
-          {!isLoading && challans.length === 0 && (
+          {!isLoading && !error && challans.length === 0 && (
             <div className="text-center py-8">
               <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium text-foreground">No Challans Found</p>
@@ -191,7 +224,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           )}
 
           {/* Challans List */}
-          {!isLoading && challans.length > 0 && (
+          {!isLoading && !error && challans.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-base sm:text-lg font-semibold">Challan Details</h3>
               
@@ -281,7 +314,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           )}
 
           {/* Pay All Button */}
-          {!isLoading && challans.filter(c => c.status === 'pending').length > 1 && (
+          {!isLoading && !error && challans.filter(c => c.status === 'pending').length > 1 && (
             <Card className="border-primary">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

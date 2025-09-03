@@ -100,6 +100,45 @@ export type Database = {
         }
         Relationships: []
       }
+      challan_verifications: {
+        Row: {
+          api_cost_saved: boolean | null
+          created_at: string
+          error_message: string | null
+          id: string
+          is_cached: boolean | null
+          status: string
+          updated_at: string
+          user_id: string
+          vehicle_number: string
+          verification_data: Json | null
+        }
+        Insert: {
+          api_cost_saved?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_cached?: boolean | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vehicle_number: string
+          verification_data?: Json | null
+        }
+        Update: {
+          api_cost_saved?: boolean | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_cached?: boolean | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_number?: string
+          verification_data?: Json | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string

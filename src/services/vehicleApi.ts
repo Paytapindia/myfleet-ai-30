@@ -36,9 +36,12 @@ export const fetchVehicleDetails = async (vehicleNumber: string): Promise<Vehicl
 
     console.log(`Fetching RC verification for vehicle: ${vehicleNumber}`);
 
-    // Call our Supabase Edge Function for RC verification
-    const { data, error } = await supabase.functions.invoke('rc-verification', {
-      body: { vehicleNumber },
+    // Call our unified Supabase Edge Function for RC verification
+    const { data, error } = await supabase.functions.invoke('vehicle-info', {
+      body: { 
+        type: 'rc',
+        vehicleNumber 
+      },
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
       }

@@ -47,8 +47,34 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
     try {
       console.log(`Fetching challans for vehicle: ${vehicleNum}`);
       
-      const { data, error } = await supabase.functions.invoke('challans-verification', {
-        body: { vehicleNumber: vehicleNum }
+      // First get vehicle details to fetch chassis and engine numbers
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: vehicle, error: vehicleError } = await supabase
+        .from('vehicles')
+        .select('chassis_number, engine_number')
+        .eq('user_id', user.id)
+        .eq('number', vehicleNum)
+        .single();
+
+      if (vehicleError || !vehicle) {
+        throw new Error('Vehicle not found. Please verify RC details first.');
+      }
+
+      if (!vehicle.chassis_number || !vehicle.engine_number) {
+        throw new Error('Chassis and engine numbers not available. Please verify RC details first.');
+      }
+      
+      const { data, error } = await supabase.functions.invoke('vehicle-info', {
+        body: { 
+          type: 'challans',
+          vehicleNumber: vehicleNum,
+          chassis: vehicle.chassis_number,
+          engine_no: vehicle.engine_number
+        }
       });
 
       if (error) {

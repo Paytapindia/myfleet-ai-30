@@ -43,7 +43,7 @@ interface VehicleCardProps {
     documents: {
       pollution: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
       registration: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
-      insurance: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
+      insurance: { status: 'active' | 'expired' | 'missing', expiryDate?: string };
       license: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
     };
   };
@@ -67,7 +67,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
 
   // Get insurance status
   const insuranceStatus = vehicle.documents.insurance.status;
-  const isInsuranceActive = insuranceStatus === 'uploaded';
+  const isInsuranceActive = insuranceStatus === 'active';
 
   const handleFastagClick = () => {
     setShowFastagModal(true);

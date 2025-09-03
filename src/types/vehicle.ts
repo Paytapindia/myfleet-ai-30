@@ -17,7 +17,7 @@ export interface Vehicle {
   documents: {
     pollution: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
     registration: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
-    insurance: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
+    insurance: { status: 'active' | 'expired' | 'missing', expiryDate?: string };
     license: { status: 'uploaded' | 'missing' | 'expired', expiryDate?: string };
   };
   financialData: FinancialData[];

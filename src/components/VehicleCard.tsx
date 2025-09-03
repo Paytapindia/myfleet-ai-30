@@ -74,7 +74,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   };
 
   return (
-    <Card className="w-full sm:max-w-sm md:w-80 mobile-card md:flex-shrink-0 backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl overflow-hidden">
+    <Card className="w-full h-full flex flex-col backdrop-blur-lg bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 shadow-lg hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl overflow-hidden">
       {/* Apple-inspired Vehicle Header */}
       <CardHeader className="pb-3 sm:pb-4 px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-start justify-between">

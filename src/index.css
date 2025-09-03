@@ -198,7 +198,7 @@ All colors MUST be HSL. Implementing clean, minimal Apple aesthetics.
   @media (max-width: 768px) {
     .mobile-card {
       width: 100%;
-      min-width: 280px;
+      min-width: unset;
       max-width: 100%;
     }
     

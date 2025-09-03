@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertTriangle, CreditCard, MapPin, Calendar, IndianRupee, ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { useVehicles } from "@/contexts/VehicleContext";
 
 interface Challan {
   id: string;
@@ -37,6 +38,8 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [payingChallan, setPayingChallan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isStaleData, setIsStaleData] = useState(false);
+  const { refreshVehicles } = useVehicles();
 
   // Function to fetch challans from API with retry logic
   const fetchChallans = async (vehicleNum: string, retryCount = 0) => {
@@ -93,21 +96,25 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
       if (error) {
         console.error('Supabase function error:', error);
         
-        // Retry on timeout or network errors
-        if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
+        // Retry on timeout, network errors, or FunctionsHttpError
+        if ((error.message?.includes('timeout') || 
+             error.message?.includes('network') || 
+             error.message?.includes('fetch') ||
+             error.name === 'FunctionsHttpError') && retryCount < maxRetries) {
           console.log(`Retrying challan fetch... (${retryCount + 1}/${maxRetries})`);
-          setError('Retrying... This may take up to 10 seconds');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+          setError('Retrying... This may take up to 30 seconds');
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s before retry
           return fetchChallans(vehicleNum, retryCount + 1);
         }
         
-        throw new Error(error.message || 'Failed to fetch challans - This may take up to 10 seconds');
+        throw new Error(error.message || 'Failed to fetch challans - This may take up to 30 seconds');
       }
 
       console.log('Challans API response:', data);
 
       if (data?.success && data?.data) {
         const challansData = data.data;
+        setIsStaleData(data.stale || false);
         
         // Parse challans from APIClub response format
         if (challansData.challans && Array.isArray(challansData.challans)) {
@@ -125,7 +132,12 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           
           setChallans(parsedChallans);
           
-          if (data.cached) {
+          // Refresh vehicle data to sync challan count on vehicle card
+          await refreshVehicles();
+          
+          if (data.stale) {
+            toast.info('Showing cached data - Government servers are slow');
+          } else if (data.cached) {
             toast.success('Challans loaded from cache');
           } else {
             toast.success('Challans fetched successfully');
@@ -133,25 +145,36 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         } else {
           // No challans found
           setChallans([]);
+          await refreshVehicles(); // Still refresh to sync zero count
           toast.info('No challans found for this vehicle');
         }
+      } else if (data?.success === false) {
+        // Handle service errors gracefully (from 200 response with error info)
+        if (data.timeout) {
+          throw new Error('Government servers are taking too long to respond. Please try again in a few minutes.');
+        }
+        throw new Error(data.error || 'Service temporarily unavailable');
       } else {
-        throw new Error(data?.error || 'Invalid response format');
+        throw new Error('Invalid response format');
       }
     } catch (error: any) {
       console.error('Error fetching challans:', error);
       
-      // Retry on timeout or network errors
-      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
+      // Retry on timeout, network errors, or service errors
+      if ((error.message?.includes('timeout') || 
+           error.message?.includes('network') || 
+           error.message?.includes('fetch') ||
+           error.message?.includes('servers are slow') ||
+           error.name === 'AbortError') && retryCount < maxRetries) {
         console.log(`Retrying challan fetch after error... (${retryCount + 1}/${maxRetries})`);
-        setError('Retrying... This may take up to 10 seconds');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry  
+        setError('Retrying... Government servers are slow');
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s before retry  
         return fetchChallans(vehicleNum, retryCount + 1);
       }
       
-      setError(error.message || 'Network timeout - Request takes up to 10 seconds');
+      setError(error.message || 'Government servers are currently slow. Please try again in a few minutes.');
       setChallans([]);
-      toast.error(error.message || 'Network timeout - Request takes up to 10 seconds');
+      toast.error(error.message || 'Government servers are currently slow. Please try again in a few minutes.');
     } finally {
       setIsLoading(false);
     }
@@ -252,12 +275,17 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <p className="text-sm text-muted-foreground">
-                    {error && error.includes('Retrying') ? error : 'Loading challans... (This may take up to 10 seconds)'}
+                    {error && error.includes('Retrying') ? error : 'Loading challans... (This may take up to 30 seconds)'}
                   </p>
                 </div>
                 {!error && (
                   <p className="text-xs text-muted-foreground text-center">
                     Please wait while we fetch your challan data from government servers
+                  </p>
+                )}
+                {isStaleData && (
+                  <p className="text-xs text-amber-600 text-center mt-2">
+                    ⚠️ Showing cached data - Government servers are currently slow
                   </p>
                 )}
               </div>

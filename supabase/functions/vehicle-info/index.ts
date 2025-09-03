@@ -363,20 +363,34 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
 
     const res = await fetchLambda(lambdaUrl, payload);
     if (!res.parsed) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
-        status: res.status || 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
+        {
+          status: res.status || 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
     const lambdaData = res.parsed;
 
-    if (lambdaData.success && lambdaData.data) {
+    if (lambdaSucceeded(res)) {
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+      const fastagData = {
+        balance: typeof r.balance === 'number' ? r.balance : 0,
+        linked: typeof r.tag_status === 'string' ? r.tag_status.toLowerCase() === 'active' : false,
+        tagId: r.tag_id ?? r.tagId ?? undefined,
+        status: r.tag_status ?? r.status ?? undefined,
+        lastTransactionDate: r.last_transaction_date ?? r.lastTransactionDate ?? undefined,
+        vehicleNumber: r.vehicle_number ?? r.vehicleNumber ?? vehicleNumber,
+        bankName: r.bank_name ?? r.bankName ?? undefined,
+      };
+
       // Update verification record with success
       await supabase
         .from('fastag_verifications')
         .update({
           status: 'completed',
-          response_data: lambdaData.data
+          response_data: fastagData,
         })
         .eq('id', pendingRecord.id);
 
@@ -384,30 +398,36 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       await supabase
         .from('vehicles')
         .update({
-          fastag_balance: lambdaData.data.balance,
-          fastag_linked: lambdaData.data.linked,
-          fastag_tag_id: lambdaData.data.tagId,
-          fastag_status: lambdaData.data.status,
-          fastag_bank_name: lambdaData.data.bankName,
-          fastag_last_transaction_date: lambdaData.data.lastTransactionDate,
-          updated_at: new Date().toISOString()
+          fastag_balance: fastagData.balance,
+          fastag_linked: fastagData.linked,
+          fastag_tag_id: fastagData.tagId,
+          fastag_status: fastagData.status,
+          fastag_bank_name: fastagData.bankName,
+          fastag_last_transaction_date: fastagData.lastTransactionDate,
+          updated_at: new Date().toISOString(),
         })
         .eq('user_id', userId)
         .eq('number', vehicleNumber);
+
+      return new Response(
+        JSON.stringify({ success: true, data: fastagData, cached: false, verifiedAt: new Date().toISOString() }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
       // Update verification record with failure
       await supabase
         .from('fastag_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData.error || lambdaData.message || res.rawText || 'Unknown error'
+          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
         })
         .eq('id', pendingRecord.id);
-    }
 
-    return new Response(JSON.stringify(lambdaData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+      return new Response(
+        JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }),
+        { status: res.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error) {
     console.error('FASTag verification error:', error);

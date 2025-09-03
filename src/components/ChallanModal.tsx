@@ -69,9 +69,9 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
       }
       
       const { data, error } = await supabase.functions.invoke('vehicle-info', {
-        body: { 
-          type: 'challans',
-          vehicleNumber: vehicleNum,
+        body: {
+          type: 'challan',
+          vehicleId: vehicleNum,
           chassis: vehicle.chassis_number,
           engine_no: vehicle.engine_number
         }

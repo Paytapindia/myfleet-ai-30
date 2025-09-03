@@ -22,9 +22,9 @@ export interface FastagVerificationResponse {
 export const verifyFastag = async (vehicleNumber: string): Promise<FastagVerificationResponse> => {
   try {
     const { data, error } = await supabase.functions.invoke('vehicle-info', {
-      body: { 
+      body: {
         type: 'fastag',
-        vehicleNumber 
+        vehicleId: vehicleNumber
       }
     });
 

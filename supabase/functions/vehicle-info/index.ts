@@ -46,13 +46,13 @@ serve(async (req: Request) => {
       });
     }
 
-    const { type, vehicleNumber, chassis, engine_no } = await req.json();
+    const { type, vehicleNumber, vehicleId, chassis, engine_no } = await req.json();
 
     // Validate request
-    if (!type || !vehicleNumber) {
+    if (!type || !(vehicleNumber || vehicleId)) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Missing required params: type, vehicleNumber' 
+        error: 'Missing required params: type, vehicleId' 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -60,37 +60,37 @@ serve(async (req: Request) => {
     }
 
     // Validate service type
-    if (!['rc', 'fastag', 'challans'].includes(type)) {
+    if (!['rc', 'fastag', 'challan'].includes(type)) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Invalid service type. Must be: rc, fastag, or challans' 
+        error: 'Invalid service type. Must be: rc, fastag, or challan' 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Processing ${type} request for vehicle: ${vehicleNumber}`);
+    console.log(`Processing ${type} request for vehicle: ${vehicleNumber || vehicleId}`);
 
     // Handle service-specific logic
     switch (type) {
       case 'rc':
-        return await handleRCVerification(supabase, user.id, vehicleNumber);
+        return await handleRCVerification(supabase, user.id, vehicleNumber || vehicleId);
       
       case 'fastag':
-        return await handleFastagVerification(supabase, user.id, vehicleNumber);
+        return await handleFastagVerification(supabase, user.id, vehicleNumber || vehicleId);
       
-      case 'challans':
+      case 'challan':
         if (!chassis || !engine_no) {
           return new Response(JSON.stringify({ 
             success: false, 
-            error: 'Chassis and engine_no are required for challans verification' 
+            error: 'Chassis and engine_no are required for challan verification' 
           }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        return await handleChallansVerification(supabase, user.id, vehicleNumber, chassis, engine_no);
+        return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no);
       
       default:
         return new Response(JSON.stringify({ 
@@ -424,8 +424,8 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        type: 'challans',
-        service: 'challans',
+        type: 'challan',
+        service: 'challan',
         vehicleId: vehicleNumber,
         chassis: chassis,
         engine_no: engine_no

@@ -183,7 +183,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
 
   useEffect(() => {
     if (open && vehicleNumber) {
-      fetchChallans(vehicleNumber);
+      fetchChallans(vehicleNumber, 0, true); // Force refresh on initial open
     }
   }, [open, vehicleNumber]);
 

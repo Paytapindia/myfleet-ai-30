@@ -709,17 +709,28 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         console.warn('[Lambda] Warning: Response appears RC-shaped while requesting Challans. Continuing without altering the response.');
       }
       
-      let challansArray = [];
+      let challansArray = [] as any[];
+      let parsePath = 'unknown';
       
       if (Array.isArray(r.challans)) {
         challansArray = r.challans;
+        parsePath = 'r.challans';
+      } else if (Array.isArray(r.response?.challans)) {
+        // PROD case: nested challans array
+        challansArray = r.response.challans;
+        parsePath = 'r.response.challans';
       } else if (Array.isArray(r.data)) {
         challansArray = r.data;
+        parsePath = 'r.data';
       } else if (Array.isArray(r.results)) {
         challansArray = r.results;
+        parsePath = 'r.results';
       } else if (Array.isArray(r)) {
         challansArray = r;
+        parsePath = 'r(root array)';
       }
+      
+      console.log('[Challans] Parse path:', parsePath, 'count:', challansArray.length);
       
       console.log('[Lambda] Extracted challans array:', challansArray);
 
@@ -727,7 +738,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         challans: challansArray,
         vehicleNumber,
         count: challansArray.length,
-        total: r.total || challansArray.length,
+        total: Number(r.total ?? challansArray.length),
         request_id: r.request_id || lambdaData.request_id
       };
 

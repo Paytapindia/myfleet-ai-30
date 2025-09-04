@@ -26,6 +26,7 @@ import VehicleManagerPage from "./pages/VehicleManagerPage";
 import GpsManagerPage from "./pages/GpsManagerPage";
 import PayTapDashboardPage from "./pages/PayTapDashboardPage";
 import ChallansDashboardPage from "./pages/ChallansDashboardPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import AppLayout from "./components/AppLayout";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,19 @@ const AppRoutes = () => {
     );
   }
 
+  // Check if user needs to complete onboarding
+  if (user && !user.isOnboarded) {
+    console.log('User needs onboarding - showing onboarding page');
+    return (
+      <Routes>
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms-conditions" element={<TermsConditionsPage />} />
+        <Route path="*" element={<OnboardingPage />} />
+      </Routes>
+    );
+  }
+
 
   // Subscription gate for onboarded users without active plan
   if (!isActiveSub) {
@@ -82,26 +96,27 @@ const AppRoutes = () => {
   // Fully authenticated, onboarded, and subscribed
   console.log('Fully authenticated - showing main app');
   return (
-    <div>
-      {emailUnverified && <EmailVerificationBanner />}
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profit-loss" element={<ProfitLossPage />} />
-          <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
-          <Route path="/gps-manager" element={<GpsManagerPage />} />
-          <Route path="/trip-manager" element={<TripManagerPage />} />
-          <Route path="/manage-operators" element={<ManageOperatorsPage />} />
-            <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
-            <Route path="/challans-dashboard" element={<ChallansDashboardPage />} />
-          <Route path="/support" element={<SupportPage />} />
-        </Route>
-        <Route path="/login" element={<Index />} /> {/* Redirect authenticated users to dashboard */}
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </div>
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<Index />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profit-loss" element={<ProfitLossPage />} />
+        <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
+        <Route path="/gps-manager" element={<GpsManagerPage />} />
+        <Route path="/trip-manager" element={<TripManagerPage />} />
+        <Route path="/manage-operators" element={<ManageOperatorsPage />} />
+        <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
+        <Route path="/challans-dashboard" element={<ChallansDashboardPage />} />
+        <Route path="/support" element={<SupportPage />} />
+      </Route>
+      <Route path="/subscription" element={<SubscriptionPage />} />
+      <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms-conditions" element={<TermsConditionsPage />} />
+      <Route path="/login" element={<Index />} /> {/* Redirect authenticated users to dashboard */}
+      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 

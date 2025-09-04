@@ -617,28 +617,28 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     if (recentVerification && recentVerification.verification_data) {
       console.log('Returning cached Challans data:', recentVerification.verification_data);
       
-      // Normalize cached data structure consistently
-      const raw = recentVerification.verification_data || {};
-      let challansArray: any[] = [];
-      if (Array.isArray(raw?.response?.challans)) {
-        console.log('[Challans][Cache] Using nested response.response.challans structure');
-        challansArray = raw.response.challans;
-      } else if (Array.isArray(raw?.challans)) {
-        challansArray = raw.challans;
-      } else if (Array.isArray(raw?.data)) {
-        challansArray = raw.data;
-      } else if (Array.isArray(raw)) {
-        challansArray = raw as any[];
+      // Normalize cached data structure
+      let normalizedData = recentVerification.verification_data;
+      
+      // Handle different cached data structures
+      if (normalizedData.response && !normalizedData.challans) {
+        normalizedData = {
+          ...normalizedData.response,
+          vehicleNumber,
+          count: normalizedData.response.challans ? normalizedData.response.challans.length : 0
+        };
+      } else if (!normalizedData.challans && normalizedData.data) {
+        normalizedData = {
+          challans: normalizedData.data,
+          vehicleNumber,
+          count: Array.isArray(normalizedData.data) ? normalizedData.data.length : 0
+        };
       }
-
-      const normalizedData = {
-        challans: challansArray,
-        vehicleNumber,
-        count: challansArray.length,
-        total: Number((raw?.total ?? raw?.response?.total) ?? challansArray.length),
-        request_id: raw?.request_id ?? raw?.response?.request_id
-      };
-
+      
+      // Ensure challans is always an array
+      if (!Array.isArray(normalizedData.challans)) {
+        normalizedData.challans = [];
+      }
       
       // Update vehicle with cached challan count
       await supabase
@@ -709,18 +709,16 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         console.warn('[Lambda] Warning: Response appears RC-shaped while requesting Challans. Continuing without altering the response.');
       }
       
-      let challansArray: any[] = [];
-      if (Array.isArray(r.response?.challans)) {
-        console.log('[Challans] Using PROD nested response.response.challans structure');
-        challansArray = r.response.challans;
-      } else if (Array.isArray(r.challans)) {
+      let challansArray = [];
+      
+      if (Array.isArray(r.challans)) {
         challansArray = r.challans;
       } else if (Array.isArray(r.data)) {
         challansArray = r.data;
       } else if (Array.isArray(r.results)) {
         challansArray = r.results;
       } else if (Array.isArray(r)) {
-        challansArray = r as any[];
+        challansArray = r;
       }
       
       console.log('[Lambda] Extracted challans array:', challansArray);
@@ -729,8 +727,8 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         challans: challansArray,
         vehicleNumber,
         count: challansArray.length,
-        total: Number((r.total ?? r.response?.total) ?? challansArray.length),
-        request_id: r.request_id || r.response?.request_id || lambdaData.request_id
+        total: r.total || challansArray.length,
+        request_id: r.request_id || lambdaData.request_id
       };
 
       // Update verification record with success

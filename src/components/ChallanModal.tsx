@@ -115,15 +115,17 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         setIsCached(data.cached || false);
         setLastFetched(data.verifiedAt || new Date().toISOString());
         
-        // Parse challans from various response formats
-        let challansArray = [];
+        // Parse challans from various response formats (normalize structure)
+        let challansArray: any[] = [];
         
-        if (challansData.challans && Array.isArray(challansData.challans)) {
+        if (Array.isArray(challansData?.response?.challans)) {
+          challansArray = challansData.response.challans;
+        } else if (Array.isArray(challansData?.challans)) {
           challansArray = challansData.challans;
-        } else if (challansData.data && Array.isArray(challansData.data)) {
+        } else if (Array.isArray(challansData?.data)) {
           challansArray = challansData.data;
         } else if (Array.isArray(challansData)) {
-          challansArray = challansData;
+          challansArray = challansData as any[];
         }
         
         console.log('Extracted challans array:', challansArray);

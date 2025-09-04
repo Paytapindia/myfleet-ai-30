@@ -701,30 +701,12 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     if (lambdaSucceeded(res)) {
       console.log('[Lambda] Parsed response:', JSON.stringify(lambdaData, null, 2));
       
-      // Safeguard: Check if we got RC data instead of challans
+      // Note: Detect potential RC-shaped data but do not intercept; log only
       const r = lambdaData.response || lambdaData.data || lambdaData.result || lambdaData;
       
-      // If response contains RC-specific fields, this means Lambda returned wrong service data
-      if (r.registrationDate || r.ownerName || r.model || r.engineNumber) {
-        console.error('[Lambda] ERROR: Received RC data instead of Challans data. Lambda may have ignored service parameter.');
-        
-        // Update verification record with failure
-        await supabase
-          .from('challan_verifications')
-          .update({
-            status: 'failed',
-            error_message: 'Lambda returned RC data instead of Challans - service parameter not processed correctly',
-          })
-          .eq('id', pendingRecord.id);
-
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Lambda service routing error - received RC data instead of Challans', 
-            details: 'Lambda may not be processing the service parameter correctly'
-          }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // If response contains RC-specific fields, just warn and continue
+      if (r && (r.registrationDate || r.ownerName || r.model || r.engineNumber)) {
+        console.warn('[Lambda] Warning: Response appears RC-shaped while requesting Challans. Continuing without altering the response.');
       }
       
       let challansArray = [];

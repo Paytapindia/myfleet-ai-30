@@ -678,12 +678,12 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     }
 
     const payload = {
-      service: 'challans',
+      type: 'challan',
       vehicleId: vehicleNumber,
       chassis,
       engine_no,
     };
-    console.log('Forwarding Challans request to Lambda with service:', payload.service, 'payload:', payload);
+    console.log('Forwarding to Lambda:', payload);
     // Increase timeout for challans (can be slower upstream)
     const res = await fetchLambda(lambdaUrl, payload, 30000);
     console.log('[Lambda] Raw response:', res.rawText);

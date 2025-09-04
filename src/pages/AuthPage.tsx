@@ -22,7 +22,8 @@ const AuthPage = () => {
   const [signupData, setSignupData] = useState({ 
     email: '', 
     password: '', 
-    fullName: '', 
+    firstName: '', 
+    lastName: '',
     phone: '',
     vehicleNumber: ''
   });
@@ -60,7 +61,7 @@ const AuthPage = () => {
     setIsLoading(true);
 
     const { error } = await signup(signupData.email, signupData.password, {
-      fullName: signupData.fullName,
+      fullName: `${signupData.firstName} ${signupData.lastName}`.trim(),
       phone: signupData.phone,
       vehicleNumber: signupData.vehicleNumber,
     });
@@ -194,15 +195,27 @@ const AuthPage = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      placeholder="John Doe"
-                      value={signupData.fullName}
-                      onChange={(e) => setSignupData(prev => ({ ...prev, fullName: e.target.value }))}
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-firstName">First Name</Label>
+                      <Input
+                        id="signup-firstName"
+                        placeholder="John"
+                        value={signupData.firstName}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, firstName: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastName">Last Name</Label>
+                      <Input
+                        id="signup-lastName"
+                        placeholder="Doe"
+                        value={signupData.lastName}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, lastName: e.target.value }))}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-phone">Phone Number</Label>

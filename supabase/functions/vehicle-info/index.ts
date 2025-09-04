@@ -175,27 +175,24 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
 
     if (existingVehicle && existingVehicle.rc_verified_at) {
       console.log('Returning cached RC data');
-      return new Response(JSON.stringify({
-        success: true,
-        data: {
-          number: existingVehicle.number,
-          model: existingVehicle.model || '',
-          make: existingVehicle.make,
-          year: existingVehicle.year,
-          fuelType: existingVehicle.fuel_type,
-          registrationDate: existingVehicle.registration_date,
-          ownerName: existingVehicle.owner_name,
-          chassisNumber: existingVehicle.chassis_number,
-          engineNumber: existingVehicle.engine_number,
-          registrationAuthority: existingVehicle.registration_authority,
-          fitnessExpiry: existingVehicle.fitness_expiry,
-          puccExpiry: existingVehicle.pucc_expiry,
-          insuranceExpiry: existingVehicle.insurance_expiry
-        },
-        cached: true
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const cachedData = {
+        number: existingVehicle.number,
+        model: existingVehicle.model || 'Not specified',
+        make: existingVehicle.make || undefined,
+        year: existingVehicle.year ? String(existingVehicle.year) : undefined,
+        fuelType: existingVehicle.fuel_type || undefined,
+        registrationDate: existingVehicle.registration_date || undefined,
+        ownerName: existingVehicle.owner_name || undefined,
+        chassisNumber: existingVehicle.chassis_number || undefined,
+        engineNumber: existingVehicle.engine_number || undefined,
+        registrationAuthority: existingVehicle.registration_authority || undefined,
+        puccExpiry: existingVehicle.pollution_expiry || undefined,
+        insuranceExpiry: existingVehicle.insurance_expiry || undefined,
+      };
+      return new Response(
+        JSON.stringify({ success: true, data: cachedData, cached: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Call Lambda for fresh data
@@ -237,22 +234,40 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     }
 
     // Update/create vehicle record with RC data
+    const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+
+    const rcData = {
+      number: r.vehicle_number ?? r.registrationNumber ?? vehicleNumber,
+      model: r.model ?? r.vehicleModel ?? 'Not specified',
+      make: r.make ?? r.maker ?? undefined,
+      year: (r.mfgYear ?? r.manufacturing_year ?? r.year) ? String(r.mfgYear ?? r.manufacturing_year ?? r.year) : undefined,
+      fuelType: r.fuel_type ?? r.fuelType ?? undefined,
+      registrationDate: r.registration_date ?? r.registrationDate ?? undefined,
+      ownerName: r.owner_name ?? r.ownerName ?? undefined,
+      chassisNumber: r.chassis_no ?? r.chassisNumber ?? r.chassis ?? undefined,
+      engineNumber: r.engine_no ?? r.engineNumber ?? r.engine ?? undefined,
+      registrationAuthority: r.registration_authority ?? r.registrationAuthority ?? undefined,
+      puccExpiry: r.pollution_expiry ?? r.puccExpiry ?? undefined,
+      insuranceExpiry: r.insurance_expiry ?? r.insuranceExpiry ?? undefined,
+    };
+
     const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
-      model: lambdaData.data.model || 'Not specified',
-      make: lambdaData.data.make,
-      year: lambdaData.data.year ? parseInt(lambdaData.data.year) : null,
-      fuel_type: lambdaData.data.fuelType,
-      registration_date: lambdaData.data.registrationDate,
-      owner_name: lambdaData.data.ownerName,
-      chassis_number: lambdaData.data.chassisNumber,
-      engine_number: lambdaData.data.engineNumber,
-      registration_authority: lambdaData.data.registrationAuthority,
-      fitness_expiry: lambdaData.data.fitnessExpiry,
-      pucc_expiry: lambdaData.data.puccExpiry,
-      insurance_expiry: lambdaData.data.insuranceExpiry,
+      model: rcData.model || 'Not specified',
+      make: rcData.make,
+      year: rcData.year ? parseInt(rcData.year) : null,
+      fuel_type: rcData.fuelType,
+      registration_date: rcData.registrationDate,
+      owner_name: rcData.ownerName,
+      chassis_number: rcData.chassisNumber,
+      engine_number: rcData.engineNumber,
+      registration_authority: rcData.registrationAuthority,
+      insurance_expiry: rcData.insuranceExpiry || null,
+      pollution_expiry: rcData.puccExpiry || null,
+      registration_expiry: r.registration_expiry ?? r.registration_valid_upto ?? null,
       rc_verified_at: new Date().toISOString(),
+      rc_verification_status: 'verified',
       updated_at: new Date().toISOString()
     };
 
@@ -274,12 +289,13 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         user_id: userId,
         vehicle_number: vehicleNumber,
         status: 'completed',
-        verification_data: lambdaData.data
+        verification_data: rcData
       });
 
-    return new Response(JSON.stringify(lambdaData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: true, data: rcData, cached: false, verifiedAt: new Date().toISOString() }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('RC verification error:', error);

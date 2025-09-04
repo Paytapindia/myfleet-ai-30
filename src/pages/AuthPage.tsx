@@ -7,15 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Truck, Car } from 'lucide-react';
+import { Truck, Car, AlertTriangle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup, resendVerificationEmail } = useAuth();
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [signupData, setSignupData] = useState({ 
     email: '', 
     password: '', 
@@ -31,6 +34,11 @@ const AuthPage = () => {
     const { error } = await login(loginData.email, loginData.password);
     
     if (error) {
+      if (error.includes('Email not confirmed') || error.includes('confirm your email')) {
+        setShowEmailNotConfirmed(true);
+        setIsLoading(false);
+        return;
+      }
       toast({
         title: "Login Failed",
         description: error,
@@ -71,6 +79,24 @@ const AuthPage = () => {
     }
     
     setIsLoading(false);
+  };
+
+  const handleResendVerificationEmail = async () => {
+    if (!loginData.email) {
+      toast({ title: 'Email required', description: 'Please enter your email address', variant: 'destructive' });
+      return;
+    }
+
+    setIsResendingEmail(true);
+    const { error } = await resendVerificationEmail(loginData.email);
+    
+    if (error) {
+      toast({ title: 'Failed to resend', description: error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Email sent', description: 'Please check your inbox for the verification link' });
+      setShowEmailNotConfirmed(false);
+    }
+    setIsResendingEmail(false);
   };
 
   return (
@@ -126,6 +152,30 @@ const AuthPage = () => {
                       required
                     />
                   </div>
+                  
+                  {showEmailNotConfirmed && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                      <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 mr-3" />
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-yellow-800">Email not verified</h3>
+                          <p className="text-sm text-yellow-700 mt-1">
+                            Please check your inbox and click the verification link, or resend it below.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResendVerificationEmail}
+                            disabled={isResendingEmail}
+                            className="mt-2 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+                          >
+                            {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing In..." : "Sign In"}
                   </Button>

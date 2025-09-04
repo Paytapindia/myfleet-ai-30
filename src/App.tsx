@@ -9,6 +9,7 @@ import { DriverProvider } from "@/contexts/DriverContext";
 import { ManualTransactionProvider } from "@/contexts/ManualTransactionContext";
 import { TripProvider } from "@/contexts/TripContext";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -30,7 +31,7 @@ import AppLayout from "./components/AppLayout";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, emailUnverified } = useAuth();
   const isActiveSub = user?.subscribed && (!user?.subscriptionEnd || new Date(user.subscriptionEnd) > new Date());
 
   console.log('AppRoutes render - user:', user?.email, 'isLoading:', isLoading, 'isOnboarded:', user?.isOnboarded);
@@ -81,23 +82,26 @@ const AppRoutes = () => {
   // Fully authenticated, onboarded, and subscribed
   console.log('Fully authenticated - showing main app');
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Index />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/profit-loss" element={<ProfitLossPage />} />
-        <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
-        <Route path="/gps-manager" element={<GpsManagerPage />} />
-        <Route path="/trip-manager" element={<TripManagerPage />} />
-        <Route path="/manage-operators" element={<ManageOperatorsPage />} />
-          <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
-          <Route path="/challans-dashboard" element={<ChallansDashboardPage />} />
-        <Route path="/support" element={<SupportPage />} />
-      </Route>
-      <Route path="/login" element={<Index />} /> {/* Redirect authenticated users to dashboard */}
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <div>
+      {emailUnverified && <EmailVerificationBanner />}
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/profit-loss" element={<ProfitLossPage />} />
+          <Route path="/vehicle-manager" element={<VehicleManagerPage />} />
+          <Route path="/gps-manager" element={<GpsManagerPage />} />
+          <Route path="/trip-manager" element={<TripManagerPage />} />
+          <Route path="/manage-operators" element={<ManageOperatorsPage />} />
+            <Route path="/paytap-dashboard" element={<PayTapDashboardPage />} />
+            <Route path="/challans-dashboard" element={<ChallansDashboardPage />} />
+          <Route path="/support" element={<SupportPage />} />
+        </Route>
+        <Route path="/login" element={<Index />} /> {/* Redirect authenticated users to dashboard */}
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
   );
 };
 

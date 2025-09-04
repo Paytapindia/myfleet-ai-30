@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Truck, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { Shield, Truck, Mail, Lock, UserPlus, LogIn, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const LoginPage = () => {
@@ -13,6 +13,8 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState(''); // exactly 6 digits
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -78,7 +80,16 @@ const LoginPage = () => {
       try { await supabase.auth.signOut({ scope: 'global' }); } catch {}
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        // Check for email not confirmed error
+        if (error.message.toLowerCase().includes('email not confirmed') || 
+            error.message.toLowerCase().includes('confirm your email')) {
+          setShowEmailNotConfirmed(true);
+          setIsLoading(false);
+          return;
+        }
+        throw error;
+      }
       const uid = data.user?.id;
       if (!uid) throw new Error('No user id returned');
 
@@ -128,6 +139,35 @@ const LoginPage = () => {
       toast({ title: 'Sign up failed', description: err?.message || 'Please try again', variant: 'destructive' });
       setIsLoading(false);
     }
+  };
+
+  const handleResendVerificationEmail = async () => {
+    if (!email) {
+      toast({ title: 'Email required', description: 'Please enter your email address', variant: 'destructive' });
+      return;
+    }
+
+    setIsResendingEmail(true);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        toast({ title: 'Failed to resend', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Email sent', description: 'Please check your inbox for the verification link' });
+        setShowEmailNotConfirmed(false);
+      }
+    } catch (err: any) {
+      toast({ title: 'Failed to resend', description: 'Please try again', variant: 'destructive' });
+    }
+    setIsResendingEmail(false);
   };
 
   return (
@@ -195,6 +235,29 @@ const LoginPage = () => {
               </div>
               <p className="text-xs text-muted-foreground">Use exactly 6 digits. Example: 123456</p>
             </div>
+
+            {showEmailNotConfirmed && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 mr-3" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-yellow-800">Email not verified</h3>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Please check your inbox and click the verification link, or resend it below.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResendVerificationEmail}
+                      disabled={isResendingEmail}
+                      className="mt-2 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+                    >
+                      {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {mode === 'login' ? (
               <Button onClick={handleLogin} disabled={isLoading || !email || !password} className="w-full h-11 text-base font-medium" size="lg">

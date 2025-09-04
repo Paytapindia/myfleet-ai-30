@@ -20,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  emailUnverified: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, userData: { fullName: string; phone: string; vehicleNumber: string }) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
@@ -36,6 +37,7 @@ interface AuthContextType {
   }) => Promise<boolean>;
   startTrial: () => Promise<void>;
   setPaidSubscription: (tier: 'semiannual' | 'annual') => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,6 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [emailUnverified, setEmailUnverified] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener
@@ -63,6 +66,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
+        
+        // Check email verification status
+        setEmailUnverified(session?.user && !session.user.email_confirmed_at ? true : false);
         
         if (session?.user && event !== 'SIGNED_OUT') {
           // Only load profile if we have a valid session
@@ -72,6 +78,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           // Clear user state on sign out or no session
           setUser(null);
+          setEmailUnverified(false);
           setIsLoading(false);
         }
       }
@@ -90,10 +97,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       setSession(session);
+      setEmailUnverified(session?.user && !session.user.email_confirmed_at ? true : false);
       if (session?.user) {
         await loadUserProfile(session.user);
       } else {
         setUser(null);
+        setEmailUnverified(false);
       }
       setIsLoading(false);
     });
@@ -188,6 +197,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        // Check for email not confirmed error
+        if (error.message.toLowerCase().includes('email not confirmed') || 
+            error.message.toLowerCase().includes('confirm your email')) {
+          return { error: 'Email not confirmed. Please check your inbox or resend verification email.' };
+        }
         return { error: error.message };
       }
 
@@ -359,18 +373,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     await loadUserProfile({ id: user.id } as SupabaseUser);
   };
 
+  const resendVerificationEmail = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Failed to resend verification email' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
       session,
       isLoading,
+      emailUnverified,
       login,
       signup,
       logout,
       completeOnboarding,
       updateProfile,
       startTrial,
-      setPaidSubscription
+      setPaidSubscription,
+      resendVerificationEmail
     }}>
       {children}
     </AuthContext.Provider>

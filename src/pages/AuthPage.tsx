@@ -206,14 +206,23 @@ const AuthPage = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-phone">Phone Number</Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+91 9876543210"
-                      value={signupData.phone}
-                      onChange={(e) => setSignupData(prev => ({ ...prev, phone: e.target.value }))}
-                      required
-                    />
+                    <div className="flex">
+                      <div className="flex items-center px-3 border border-r-0 rounded-l-md bg-muted text-muted-foreground border-input">
+                        +91
+                      </div>
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        placeholder="9876543210"
+                        value={signupData.phone.replace('+91', '')}
+                        onChange={(e) => {
+                          const phoneNumber = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                          setSignupData(prev => ({ ...prev, phone: `+91${phoneNumber}` }));
+                        }}
+                        className="rounded-l-none"
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-vehicle" className="flex items-center">

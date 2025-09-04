@@ -99,7 +99,7 @@ serve(async (req: Request) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no);
+        return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no, rawBody.forceRefresh);
       
       default:
         return new Response(JSON.stringify({ 
@@ -593,40 +593,66 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
   }
 }
 
-async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis: string, engine_no: string) {
+async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis: string, engine_no: string, forceRefresh = false) {
   try {
-    // Check for recent cached data (within 30 minutes)
+    // Check for recent cached data (within 30 minutes) unless force refresh
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     
-    const { data: recentVerification } = await supabase
-      .from('challan_verifications')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('vehicle_number', vehicleNumber)
-      .eq('status', 'completed')
-      .gte('created_at', thirtyMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    let recentVerification = null;
+    
+    if (!forceRefresh) {
+      const { data } = await supabase
+        .from('challan_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .gte('created_at', thirtyMinutesAgo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      recentVerification = data;
+    }
 
     if (recentVerification && recentVerification.verification_data) {
-      console.log('Returning cached Challans data');
+      console.log('Returning cached Challans data:', recentVerification.verification_data);
+      
+      // Normalize cached data structure
+      let normalizedData = recentVerification.verification_data;
+      
+      // Handle different cached data structures
+      if (normalizedData.response && !normalizedData.challans) {
+        normalizedData = {
+          ...normalizedData.response,
+          vehicleNumber,
+          count: normalizedData.response.challans ? normalizedData.response.challans.length : 0
+        };
+      } else if (!normalizedData.challans && normalizedData.data) {
+        normalizedData = {
+          challans: normalizedData.data,
+          vehicleNumber,
+          count: Array.isArray(normalizedData.data) ? normalizedData.data.length : 0
+        };
+      }
+      
+      // Ensure challans is always an array
+      if (!Array.isArray(normalizedData.challans)) {
+        normalizedData.challans = [];
+      }
       
       // Update vehicle with cached challan count
-      if (recentVerification.verification_data.challans) {
-        await supabase
-          .from('vehicles')
-          .update({
-            challans_count: recentVerification.verification_data.challans.length,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('number', vehicleNumber);
-      }
+      await supabase
+        .from('vehicles')
+        .update({
+          challans_count: normalizedData.challans.length,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('number', vehicleNumber);
 
       return new Response(JSON.stringify({
         success: true,
-        data: recentVerification.verification_data,
+        data: normalizedData,
         cached: true,
         verifiedAt: recentVerification.created_at
       }), {
@@ -660,6 +686,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     console.log('Forwarding to Lambda:', payload);
     // Increase timeout for challans (can be slower upstream)
     const res = await fetchLambda(lambdaUrl, payload, 30000);
+    console.log('[Lambda] Raw response:', res.rawText);
     if (!res.parsed) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
@@ -672,19 +699,30 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     const lambdaData = res.parsed;
 
     if (lambdaSucceeded(res)) {
-      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
-      const challansArray = Array.isArray(r.challans)
-        ? r.challans
-        : Array.isArray(r.data)
-        ? r.data
-        : Array.isArray(r.results)
-        ? r.results
-        : [];
+      console.log('[Lambda] Parsed response:', JSON.stringify(lambdaData, null, 2));
+      
+      // Extract challans from various response structures
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || lambdaData;
+      let challansArray = [];
+      
+      if (Array.isArray(r.challans)) {
+        challansArray = r.challans;
+      } else if (Array.isArray(r.data)) {
+        challansArray = r.data;
+      } else if (Array.isArray(r.results)) {
+        challansArray = r.results;
+      } else if (Array.isArray(r)) {
+        challansArray = r;
+      }
+      
+      console.log('[Lambda] Extracted challans array:', challansArray);
 
       const challansData = {
         challans: challansArray,
         vehicleNumber,
-        count: Array.isArray(challansArray) ? challansArray.length : 0,
+        count: challansArray.length,
+        total: r.total || challansArray.length,
+        request_id: r.request_id || lambdaData.request_id
       };
 
       // Update verification record with success

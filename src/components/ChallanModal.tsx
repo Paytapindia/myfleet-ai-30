@@ -37,9 +37,11 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [payingChallan, setPayingChallan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
+  const [lastFetched, setLastFetched] = useState<string | null>(null);
 
   // Function to fetch challans from API with retry logic
-  const fetchChallans = async (vehicleNum: string, retryCount = 0) => {
+  const fetchChallans = async (vehicleNum: string, retryCount = 0, forceRefresh = false) => {
     if (!vehicleNum) return;
     
     const maxRetries = 1;
@@ -83,7 +85,8 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           type: 'challan',
           vehicleId: vehicleNum,
           chassis: vehicle.chassis_number,
-          engine_no: vehicle.engine_number
+          engine_no: vehicle.engine_number,
+          forceRefresh
         },
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -98,20 +101,35 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           console.log(`Retrying challan fetch... (${retryCount + 1}/${maxRetries})`);
           setError('Retrying... This may take up to 10 seconds');
           await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
-          return fetchChallans(vehicleNum, retryCount + 1);
+          return fetchChallans(vehicleNum, retryCount + 1, forceRefresh);
         }
         
         throw new Error(error.message || 'Failed to fetch challans - This may take up to 10 seconds');
       }
 
       console.log('Challans API response:', data);
+      console.log('Raw challans data:', data?.data);
 
       if (data?.success && data?.data) {
         const challansData = data.data;
+        setIsCached(data.cached || false);
+        setLastFetched(data.verifiedAt || new Date().toISOString());
         
-        // Parse challans from APIClub response format
+        // Parse challans from various response formats
+        let challansArray = [];
+        
         if (challansData.challans && Array.isArray(challansData.challans)) {
-          const parsedChallans: Challan[] = challansData.challans.map((challan: any) => ({
+          challansArray = challansData.challans;
+        } else if (challansData.data && Array.isArray(challansData.data)) {
+          challansArray = challansData.data;
+        } else if (Array.isArray(challansData)) {
+          challansArray = challansData;
+        }
+        
+        console.log('Extracted challans array:', challansArray);
+        
+        if (challansArray.length > 0) {
+          const parsedChallans: Challan[] = challansArray.map((challan: any) => ({
             id: challan.challan_no || `ch-${Math.random()}`,
             challanNumber: challan.challan_no || 'N/A',
             amount: parseFloat(challan.amount || '0'),
@@ -125,15 +143,21 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
           
           setChallans(parsedChallans);
           
+          const statusMsg = `${parsedChallans.length} challan(s) found`;
           if (data.cached) {
-            toast.success('Challans loaded from cache');
+            toast.success(`${statusMsg} (from cache)`);
           } else {
-            toast.success('Challans fetched successfully');
+            toast.success(`${statusMsg} (live data)`);
           }
         } else {
           // No challans found
           setChallans([]);
-          toast.info('No challans found for this vehicle');
+          const statusMsg = 'No challans found for this vehicle';
+          if (data.cached) {
+            toast.info(`${statusMsg} (from cache)`);
+          } else {
+            toast.success(`${statusMsg} (live data)`);
+          }
         }
       } else {
         throw new Error(data?.error || 'Invalid response format');
@@ -141,13 +165,13 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
     } catch (error: any) {
       console.error('Error fetching challans:', error);
       
-      // Retry on timeout or network errors
-      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
-        console.log(`Retrying challan fetch after error... (${retryCount + 1}/${maxRetries})`);
-        setError('Retrying... This may take up to 10 seconds');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry  
-        return fetchChallans(vehicleNum, retryCount + 1);
-      }
+        // Retry on timeout or network errors
+        if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
+          console.log(`Retrying challan fetch after error... (${retryCount + 1}/${maxRetries})`);
+          setError('Retrying... This may take up to 10 seconds');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry  
+          return fetchChallans(vehicleNum, retryCount + 1, forceRefresh);
+        }
       
       setError(error.message || 'Network timeout - Request takes up to 10 seconds');
       setChallans([]);
@@ -220,6 +244,37 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 sm:space-y-6">
+          {/* Status and Refresh */}
+          <div className="flex items-center justify-between gap-4 p-3 bg-muted rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isCached ? (
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 bg-yellow-500 rounded-full" />
+                  <span>Cached data</span>
+                  {lastFetched && (
+                    <span className="text-xs">
+                      ({new Date(lastFetched).toLocaleTimeString()})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 bg-green-500 rounded-full" />
+                  <span>Live data</span>
+                </div>
+              )}
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => fetchChallans(vehicleNumber, 0, true)}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              Force Refresh
+            </Button>
+          </div>
+
           {/* Summary Card */}
           {challans.length > 0 && (
             <Card>

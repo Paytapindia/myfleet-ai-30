@@ -374,25 +374,19 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     };
     console.log('Forwarding to Lambda:', payload);
 
-    // Enhanced retry logic with exponential backoff - Phase 3 implementation
-    let res = await fetchLambda(lambdaUrl, payload, 30000);
+    // Fast path retry logic tuned for <20s total
+    const startMs = Date.now();
+    let res = await fetchLambda(lambdaUrl, payload, 12000);
     
-    // Retry up to 2 times with exponential backoff for timeouts/502s
-    const maxRetries = 2;
-    let retryDelay = 1000; // Start with 1 second
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      if (res.parsed && lambdaSucceeded(res)) break;
-      
-      if (res.status === 502 || res.status === 0 || !res.parsed) {
-        console.log(`[FASTag] Retry ${attempt}/${maxRetries} after ${retryDelay}ms delay...`);
-        await new Promise((r) => setTimeout(r, retryDelay));
-        res = await fetchLambda(lambdaUrl, payload, 30000);
-        retryDelay *= 2; // Exponential backoff: 1s, 2s
-      } else {
-        break; // Don't retry on other errors
-      }
+    // Single quick retry on transient errors/timeouts
+    if ((!res.parsed || res.status === 0 || res.status === 502)) {
+      const elapsed1 = Date.now() - startMs;
+      console.log(`[FASTag] First attempt elapsed ${elapsed1}ms; quick retry after 1500ms...`);
+      await new Promise((r) => setTimeout(r, 1500));
+      res = await fetchLambda(lambdaUrl, payload, 10000);
     }
+    const totalElapsed = Date.now() - startMs;
+    console.log(`[FASTag] Lambda attempts total elapsed: ${totalElapsed}ms`);
     // Phase 2: Progressive fallback - always return 200 with error details
     if (!res.parsed) {
       console.log('[FASTag] Lambda returned invalid response, checking for fallback data...');

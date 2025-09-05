@@ -458,18 +458,25 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       });
     }
     const lambdaData = res.parsed;
+    console.log('[FASTag] Raw Lambda response:', JSON.stringify(lambdaData, null, 2));
 
     if (lambdaSucceeded(res)) {
-      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || lambdaData || {};
+      console.log('[FASTag] Extracted response data:', JSON.stringify(r, null, 2));
+      
       const fastagData = {
-        balance: typeof r.balance === 'number' ? r.balance : 0,
-        linked: typeof r.tag_status === 'string' ? r.tag_status.toLowerCase() === 'active' : false,
-        tagId: r.tag_id ?? r.tagId ?? undefined,
-        status: r.tag_status ?? r.status ?? undefined,
-        lastTransactionDate: r.last_transaction_date ?? r.lastTransactionDate ?? undefined,
-        vehicleNumber: r.vehicle_number ?? r.vehicleNumber ?? vehicleNumber,
-        bankName: r.bank_name ?? r.bankName ?? undefined,
+        balance: parseFloat(r.available_balance || r.balance || r.current_balance || 0),
+        linked: (r.tag_status || r.status || '').toLowerCase() === 'active' || 
+                (r.tag_status || r.status || '').toLowerCase() === 'linked' ||
+                Boolean(r.tag_id || r.tagId),
+        tagId: r.tag_id || r.tagId || r.fasttag_id || undefined,
+        status: r.tag_status || r.status || r.fastag_status || 'unknown',
+        lastTransactionDate: r.last_transaction_date || r.lastTransactionDate || r.last_txn_date || undefined,
+        vehicleNumber: r.vehicle_number || r.vehicleNumber || r.license_plate || vehicleNumber,
+        bankName: r.bank_name || r.bankName || r.issuing_bank || r.issuer || undefined,
       };
+      
+      console.log('[FASTag] Mapped FASTag data:', JSON.stringify(fastagData, null, 2));
 
       // Update verification record with success
       await supabase

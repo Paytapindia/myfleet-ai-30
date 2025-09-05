@@ -15,6 +15,7 @@ const AuthPage = () => {
   const { login, signup, resendVerificationEmail, resetPassword } = useAuth();
   const { toast } = useToast();
   
+  const [activeTab, setActiveTab] = useState('login');
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
@@ -78,7 +79,19 @@ const AuthPage = () => {
     } else {
       toast({
         title: "Account Created",
-        description: "Please check your email to verify your account.",
+        description: "Account created! Please log in and check your email to verify your account.",
+      });
+      // Switch to login tab and pre-populate email
+      setActiveTab('login');
+      setLoginData(prev => ({ ...prev, email: signupData.email }));
+      // Clear signup form
+      setSignupData({ 
+        email: '', 
+        password: '', 
+        firstName: '', 
+        lastName: '',
+        phone: '',
+        vehicleNumber: ''
       });
     }
     
@@ -150,7 +163,7 @@ const AuthPage = () => {
           <p className="text-muted-foreground">Access your fleet management dashboard</p>
         </div>
 
-        <Tabs defaultValue="login" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>

@@ -7,18 +7,21 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Truck, Car, AlertTriangle } from 'lucide-react';
+import { Truck, Car, AlertTriangle, ArrowLeft, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { login, signup, resendVerificationEmail } = useAuth();
+  const { login, signup, resendVerificationEmail, resetPassword } = useAuth();
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [isResetingPassword, setIsResetingPassword] = useState(false);
   const [signupData, setSignupData] = useState({ 
     email: '', 
     password: '', 
@@ -100,6 +103,38 @@ const AuthPage = () => {
     setIsResendingEmail(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!forgotPasswordEmail) {
+      toast({ 
+        title: 'Email required', 
+        description: 'Please enter your email address', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    setIsResetingPassword(true);
+    const { error } = await resetPassword(forgotPasswordEmail);
+    
+    if (error) {
+      toast({ 
+        title: 'Failed to send reset email', 
+        description: error, 
+        variant: 'destructive' 
+      });
+    } else {
+      toast({ 
+        title: 'Password reset email sent', 
+        description: 'Please check your inbox for the password reset link' 
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    }
+    setIsResetingPassword(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -122,67 +157,127 @@ const AuthPage = () => {
           </TabsList>
 
           <TabsContent value="login">
-            <Card>
-              <CardHeader>
-                <CardTitle>Login</CardTitle>
-                <CardDescription>
-                  Enter your credentials to access your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={loginData.password}
-                      onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  
-                  {showEmailNotConfirmed && (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                      <div className="flex items-start">
-                        <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 mr-3" />
-                        <div className="flex-1">
-                          <h3 className="text-sm font-medium text-yellow-800">Email not verified</h3>
-                          <p className="text-sm text-yellow-700 mt-1">
-                            Please check your inbox and click the verification link, or resend it below.
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleResendVerificationEmail}
-                            disabled={isResendingEmail}
-                            className="mt-2 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
-                          >
-                            {isResendingEmail ? 'Sending...' : 'Resend verification email'}
-                          </Button>
+            {!showForgotPassword ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Login</CardTitle>
+                  <CardDescription>
+                    Enter your credentials to access your account
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">Email</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={loginData.email}
+                        onChange={(e) => setLoginData(prev => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Password</Label>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    
+                    {showEmailNotConfirmed && (
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                        <div className="flex items-start">
+                          <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 mr-3" />
+                          <div className="flex-1">
+                            <h3 className="text-sm font-medium text-yellow-800">Email not verified</h3>
+                            <p className="text-sm text-yellow-700 mt-1">
+                              Please check your inbox and click the verification link, or resend it below.
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleResendVerificationEmail}
+                              disabled={isResendingEmail}
+                              className="mt-2 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+                            >
+                              {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                            </Button>
+                          </div>
                         </div>
                       </div>
+                    )}
+                    
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Signing In..." : "Sign In"}
+                    </Button>
+                    
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(true);
+                          setForgotPasswordEmail(loginData.email);
+                        }}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot your password?
+                      </button>
                     </div>
-                  )}
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing In..." : "Sign In"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Mail className="h-5 w-5 mr-2" />
+                    Reset Password
+                  </CardTitle>
+                  <CardDescription>
+                    Enter your email address and we'll send you a password reset link
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-email">Email Address</Label>
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <Button type="submit" className="w-full" disabled={isResetingPassword}>
+                      {isResetingPassword ? "Sending Reset Link..." : "Send Reset Link"}
+                    </Button>
+                    
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setForgotPasswordEmail('');
+                        }}
+                        className="text-sm text-muted-foreground hover:text-primary inline-flex items-center"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-1" />
+                        Back to login
+                      </button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="signup">
@@ -282,11 +377,6 @@ const AuthPage = () => {
             </Card>
           </TabsContent>
         </Tabs>
-
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>For testing: Use any email/password combination</p>
-          <p>Check your email after signup to verify your account</p>
-        </div>
       </div>
     </div>
   );

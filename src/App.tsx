@@ -12,6 +12,7 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfitLossPage from "./pages/ProfitLossPage";
 import TripManagerPage from "./pages/TripManagerPage";
@@ -58,6 +59,7 @@ const AppRoutes = () => {
         <Route path="/" element={<AuthPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />
         <Route path="*" element={<AuthPage />} />

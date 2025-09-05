@@ -76,22 +76,27 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
       };
     }
 
+    // Debug logging
+    console.log('Raw edge function response:', data);
+    
     // Transform the API response to our interface
-    const vehicleData = data.data;
+    const vehicleData = data.data || data; // Handle both data.data and direct data structures
+    console.log('Transformed vehicle data:', vehicleData);
+    
     return {
-      number: vehicleData.number || vehicleNumber,
-      model: vehicleData.model || '',
-      make: vehicleData.make,
-      year: vehicleData.year,
-      fuelType: vehicleData.fuelType,
-      registrationDate: vehicleData.registrationDate,
-      ownerName: vehicleData.ownerName,
-      chassisNumber: vehicleData.chassisNumber,
-      engineNumber: vehicleData.engineNumber,
-      registrationAuthority: vehicleData.registrationAuthority,
-      fitnessExpiry: vehicleData.fitnessExpiry,
-      puccExpiry: vehicleData.puccExpiry,
-      insuranceExpiry: vehicleData.insuranceExpiry,
+      number: vehicleData.license_plate || vehicleData.number || vehicleNumber,
+      model: vehicleData.vehicle_model || vehicleData.model || '',
+      make: vehicleData.make || vehicleData.vehicle_make,
+      year: vehicleData.year || vehicleData.year_of_manufacture,
+      fuelType: vehicleData.fuel_type || vehicleData.fuelType,
+      registrationDate: vehicleData.registration_date || vehicleData.registrationDate,
+      ownerName: vehicleData.owner_name || vehicleData.ownerName,
+      chassisNumber: vehicleData.chassis_no || vehicleData.chassisNumber,
+      engineNumber: vehicleData.engine_no || vehicleData.engineNumber,
+      registrationAuthority: vehicleData.registration_authority || vehicleData.registrationAuthority,
+      fitnessExpiry: vehicleData.fitness_valid_upto || vehicleData.fitnessExpiry,
+      puccExpiry: vehicleData.pucc_valid_upto || vehicleData.puccExpiry,
+      insuranceExpiry: vehicleData.insurance_valid_upto || vehicleData.insuranceExpiry,
       success: true,
       cached: data.cached || false
     };

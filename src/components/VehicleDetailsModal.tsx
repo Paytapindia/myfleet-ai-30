@@ -88,9 +88,10 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex flex-col items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-2 text-muted-foreground">Loading vehicle details...</span>
+            <span className="mt-2 text-muted-foreground">Loading vehicle details...</span>
+            <span className="mt-1 text-xs text-muted-foreground">This may take up to 45 seconds</span>
           </div>
         ) : vehicleDetails ? (
           <div className="space-y-6">

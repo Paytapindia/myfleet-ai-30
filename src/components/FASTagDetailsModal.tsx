@@ -121,7 +121,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
             FASTag Details - {vehicleNumber}
           </DialogTitle>
           <DialogDescription>
-            Live verification may take up to 30 seconds. Cached data will be shown if available.
+            Live verification may take up to 45 seconds. Cached data will be shown if available.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +135,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                     <span>Connecting to FASTag service...</span>
                   </div>
                   <div className="text-center text-sm text-muted-foreground">
-                    <p>This may take up to 30 seconds</p>
+                    <p>This may take up to 45 seconds</p>
                     <p>Cached data will be shown if available</p>
                   </div>
                 </div>

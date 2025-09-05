@@ -63,7 +63,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
         number: vehicleNumber,
         model: '',
         success: false,
-        error: error.message || 'Failed to fetch vehicle details - This may take up to 10 seconds'
+        error: error.message || 'Failed to fetch vehicle details - This may take up to 45 seconds'
       };
     }
 
@@ -115,7 +115,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
       number: vehicleNumber,
       model: '',
       success: false,
-      error: error instanceof Error ? error.message : 'Network timeout - Request takes up to 10 seconds'
+      error: error instanceof Error ? error.message : 'Network timeout - Request takes up to 45 seconds'
     };
   }
 };

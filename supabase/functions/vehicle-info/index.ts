@@ -124,7 +124,7 @@ serve(async (req: Request) => {
 });
 
 // Helper: fetch with timeout and robust parsing of Lambda responses
-const DEFAULT_TIMEOUT_MS = 15000;
+const DEFAULT_TIMEOUT_MS = 45000;
 async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -209,6 +209,25 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
 
     const res = await fetchLambda(lambdaUrl, payload);
     if (!res.parsed) {
+      // Attempt fallback to last successful RC verification
+      const { data: fallbackVerification } = await supabase
+        .from('rc_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fallbackVerification && fallbackVerification.verification_data) {
+        console.log('[RC] Using cached fallback data from rc_verifications');
+        return new Response(
+          JSON.stringify({ success: true, data: fallbackVerification.verification_data, cached: true, verifiedAt: fallbackVerification.created_at }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
         status: res.status || 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -217,6 +236,17 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     const lambdaData = res.parsed;
 
     if (!lambdaSucceeded(res)) {
+      // Try fallback to last successful RC verification if available
+      const { data: fallbackVerification } = await supabase
+        .from('rc_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
       // Log failed verification
       await supabase
         .from('rc_verifications')
@@ -226,6 +256,13 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
           status: 'failed',
           error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
         });
+
+      if (fallbackVerification && fallbackVerification.verification_data) {
+        console.log('[RC] Using cached data after failure');
+        return new Response(JSON.stringify({ success: true, data: fallbackVerification.verification_data, cached: true, verifiedAt: fallbackVerification.created_at }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       return new Response(JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }), {
         status: res.status || 400,

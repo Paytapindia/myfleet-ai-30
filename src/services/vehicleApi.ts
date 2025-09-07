@@ -18,6 +18,11 @@ export interface VehicleApiResponse {
   success: boolean;
   error?: string;
   cached?: boolean;
+  // Diagnostic fields
+  requestPayloadSent?: any;
+  bodyPreview?: string;
+  upstreamStatus?: number;
+  envKeyUsed?: string;
 }
 
 export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0): Promise<VehicleApiResponse> => {
@@ -112,7 +117,12 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
           number: normalizedVehicleNumber,
           model: '',
           success: false,
-          error: msg
+          error: msg,
+          // Include diagnostic fields for failed requests
+          requestPayloadSent: (data as any).requestPayloadSent,
+          bodyPreview: (data as any).bodyPreview,
+          upstreamStatus: (data as any).upstreamStatus,
+          envKeyUsed: (data as any).envKeyUsed
         };
       }
 

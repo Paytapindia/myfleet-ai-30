@@ -169,21 +169,16 @@ Deno.serve(async (req) => {
       Deno.env.get('AWS_LAMBDA_API_KEY') ||
       Deno.env.get('AWS_RC_API_KEY') ||
       '';
+    // Clean payload - send minimal data to avoid confusion
     const payload: Record<string, any> = { 
-      service, 
       type: service, 
-      vehicleId, 
-      vehicleNumber: vehicleId,
-      rc_number: vehicleId,
-      registrationNumber: vehicleId
+      vehicleId
     };
+    
+    // Only add chassis/engine for challans service
     if (service === 'challans') {
       payload.chassis = chassis;
-      payload.chassis_no = chassis;
-      payload.chassisNumber = chassis;
       payload.engine_no = engine_no;
-      payload.engineNo = engine_no;
-      payload.engineNumber = engine_no;
     }
 
     // Call Lambda
@@ -243,7 +238,7 @@ Deno.serve(async (req) => {
       if (fuel_type) updates.fuel_type = fuel_type;
       if (registration_date) updates.registration_date = registration_date;
       if (registration_authority) updates.registration_authority = registration_authority;
-      updates.rc_data_complete = Boolean(chassis_number && engine_number);
+      // Remove rc_data_complete update to avoid DEFAULT constraint issues
 
       const { error: updErr } = await supabase
         .from('vehicles')
@@ -289,7 +284,17 @@ Deno.serve(async (req) => {
         .eq('number', vehicleId);
     }
 
-    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl, envKeyUsed, upstreamStatus: upstream.status });
+    return jsonResponse({ 
+      success: ok, 
+      data: parsed?.data ?? parsed, 
+      cached: parsed?.cached ?? false, 
+      verifiedAt: new Date().toISOString(), 
+      upstreamUrl: lambdaUrl, 
+      envKeyUsed, 
+      upstreamStatus: upstream.status,
+      requestPayloadSent: payload,
+      bodyPreview: rawText?.substring(0, 200) + (rawText?.length > 200 ? '...' : '')
+    });
   } catch (e: any) {
     return jsonResponse({ success: false, error: 'Unexpected error', details: e?.message || String(e) });
   }

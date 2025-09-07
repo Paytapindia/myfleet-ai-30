@@ -82,14 +82,59 @@ const handleRetry = async () => {
           )}
 
 {error && (
-  <div className="flex items-center justify-between py-4">
-    <div className="flex items-center space-x-2 text-destructive">
-      <AlertCircle className="h-4 w-4" />
-      <span className="text-sm">{error}</span>
+  <div className="space-y-3 py-4">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-2 text-destructive">
+        <AlertCircle className="h-4 w-4" />
+        <span className="text-sm font-medium">Verification failed</span>
+      </div>
+      <Button size="sm" variant="secondary" onClick={handleRetry}>
+        Retry
+      </Button>
     </div>
-    <Button size="sm" variant="secondary" onClick={handleRetry}>
-      Retry
-    </Button>
+    
+    <div className="text-xs text-muted-foreground">
+      {error}
+    </div>
+
+    {/* Show diagnostics if available */}
+    {vehicleDetails && !vehicleDetails.success && (
+      <div className="border-t pt-3 space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Diagnostic Information:</p>
+        
+        {vehicleDetails.requestPayloadSent && (
+          <div>
+            <p className="text-xs text-muted-foreground">Request sent:</p>
+            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+              {JSON.stringify(vehicleDetails.requestPayloadSent, null, 2)}
+            </pre>
+          </div>
+        )}
+        
+        {vehicleDetails.bodyPreview && (
+          <div>
+            <p className="text-xs text-muted-foreground">Response received:</p>
+            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+              {vehicleDetails.bodyPreview}
+            </pre>
+          </div>
+        )}
+        
+        {vehicleDetails.upstreamStatus && (
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">HTTP Status:</span>
+            <span className="font-mono">{vehicleDetails.upstreamStatus}</span>
+          </div>
+        )}
+        
+        {vehicleDetails.envKeyUsed && (
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Endpoint:</span>
+            <span className="font-mono">{vehicleDetails.envKeyUsed}</span>
+          </div>
+        )}
+      </div>
+    )}
   </div>
 )}
 

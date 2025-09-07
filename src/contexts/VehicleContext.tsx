@@ -191,9 +191,9 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      const { data: rcData, error: rcError } = await supabase.functions.invoke('vehicle-info', {
+      const { data: rcData, error: rcError } = await supabase.functions.invoke('vehicleinfo-api-club', {
         body: { 
-          type: 'rc', 
+          service: 'rc', 
           vehicleId: vehicleNumber 
         },
         headers: {

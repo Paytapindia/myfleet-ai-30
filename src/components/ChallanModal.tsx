@@ -96,9 +96,9 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('vehicle-info', {
+      const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
         body: {
-          type: 'challan',
+          service: 'challans',
           vehicleId: vehicleNum,
           chassis: vehicle.chassis_number,
           engine_no: vehicle.engine_number,
@@ -209,9 +209,9 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         throw new Error('Authentication required');
       }
 
-      const { data, error } = await supabase.functions.invoke('vehicle-info', {
+      const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
         body: { 
-          type: 'rc', 
+          service: 'rc', 
           vehicleId: vehicleNumber 
         },
         headers: {

@@ -106,9 +106,9 @@ export default function ChallansDashboardPage() {
         try {
           console.log(`Fetching challans for vehicle: ${vehicle.number}`);
           
-          const { data, error } = await supabase.functions.invoke('vehicle-info', {
+          const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
             body: {
-              type: 'challan',
+              service: 'challans',
               vehicleId: vehicle.number,
               chassis: vehicle.chassis_number,
               engine_no: vehicle.engine_number,

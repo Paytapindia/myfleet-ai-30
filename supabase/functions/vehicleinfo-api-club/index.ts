@@ -132,6 +132,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: 'Lambda URL not configured' });
     }
 
+    // Validate URL format - ensure it's HTTP/HTTPS, not ARN
+    if (!lambdaUrl.startsWith('http://') && !lambdaUrl.startsWith('https://')) {
+      console.error('Invalid Lambda URL format:', lambdaUrl);
+      return jsonResponse({ 
+        success: false, 
+        error: 'Invalid Lambda URL configuration', 
+        details: `URL must start with http:// or https://, got: ${lambdaUrl.substring(0, 50)}...`
+      });
+    }
+
     const proxyToken =
       Deno.env.get('AWS_LAMBDA_PROXY_TOKEN') ||
       Deno.env.get('SHARED_PROXY_TOKEN') ||
@@ -146,14 +156,26 @@ Deno.serve(async (req) => {
 
     // Call Lambda
     const timeoutMs = service === 'challans' ? 65000 : 45000;
-    const upstream = await fetchWithTimeout(lambdaUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(proxyToken ? { 'x-proxy-token': proxyToken } : {}),
-      },
-      body: JSON.stringify(payload),
-    }, timeoutMs);
+    console.log(`[vehicleinfo-api-club] Calling Lambda at: ${lambdaUrl} with payload:`, payload);
+    
+    let upstream: Response;
+    try {
+      upstream = await fetchWithTimeout(lambdaUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(proxyToken ? { 'x-proxy-token': proxyToken } : {}),
+        },
+        body: JSON.stringify(payload),
+      }, timeoutMs);
+    } catch (fetchError: any) {
+      console.error(`[vehicleinfo-api-club] Fetch error:`, fetchError);
+      return jsonResponse({ 
+        success: false, 
+        error: 'Lambda request failed', 
+        details: fetchError.message || String(fetchError)
+      });
+    }
 
     const rawText = await upstream.text();
     let parsed: any = null;

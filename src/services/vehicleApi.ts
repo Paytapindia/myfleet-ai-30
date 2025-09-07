@@ -23,26 +23,37 @@ export interface VehicleApiResponse {
 export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0): Promise<VehicleApiResponse> => {
   const maxRetries = 1;
   
+  // Normalize and validate vehicle number  
+  const normalizedVehicleNumber = vehicleNumber?.trim()?.toUpperCase();
+  if (!normalizedVehicleNumber) {
+    return {
+      number: vehicleNumber,
+      model: '',
+      success: false,
+      error: 'Vehicle number is required'
+    };
+  }
+  
   try {
     // Get the current session
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
       return {
-        number: vehicleNumber,
+        number: normalizedVehicleNumber,
         model: '',
         success: false,
         error: 'User not authenticated'
       };
     }
 
-    console.log(`RC verification attempt ${retryCount + 1} for vehicle: ${vehicleNumber}`);
+    console.log(`RC verification attempt ${retryCount + 1} for vehicle: ${normalizedVehicleNumber}`);
 
     // Call our unified Supabase Edge Function for RC verification
     const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
       body: {
         service: 'rc',
-        vehicleId: vehicleNumber
+        vehicleId: normalizedVehicleNumber
       },
       headers: {
         'Authorization': `Bearer ${session.access_token}`
@@ -52,24 +63,35 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     if (error) {
       console.error('RC verification error:', error);
       
+      // Handle specific edge function errors
+      if (error.message?.includes('Missing required parameters')) {
+        console.log('Edge function parameter error, this might be a deployment issue');
+        return {
+          number: normalizedVehicleNumber,
+          model: '',
+          success: false,
+          error: 'Service temporarily unavailable. Please try again.'
+        };
+      }
+      
       // Retry on timeout or network errors
       if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
         console.log(`Retrying RC verification... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
-        return fetchVehicleDetails(vehicleNumber, retryCount + 1);
+        return fetchVehicleDetails(normalizedVehicleNumber, retryCount + 1);
       }
       
       return {
-        number: vehicleNumber,
+        number: normalizedVehicleNumber,
         model: '',
-        success: false,
+        success: false,  
         error: error.message || 'Failed to fetch vehicle details - This may take up to 45 seconds'
       };
     }
 
     if (!data.success) {
       return {
-        number: vehicleNumber,
+        number: normalizedVehicleNumber,
         model: '',
         success: false,
         error: data.error || 'Verification failed'
@@ -89,7 +111,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     }
     
     return {
-      number: vehicleData.number || vehicleNumber,
+      number: vehicleData.number || normalizedVehicleNumber,
       model: vehicleData.model || '',
       make: vehicleData.make || null,
       year: vehicleData.year || null,
@@ -113,11 +135,11 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
       console.log(`Retrying RC verification after error... (${retryCount + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
-      return fetchVehicleDetails(vehicleNumber, retryCount + 1);
+      return fetchVehicleDetails(normalizedVehicleNumber, retryCount + 1);
     }
     
     return {
-      number: vehicleNumber,
+      number: normalizedVehicleNumber,
       model: '',
       success: false,
       error: error instanceof Error ? error.message : 'Network timeout - Request takes up to 45 seconds'

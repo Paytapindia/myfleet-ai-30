@@ -902,120 +902,195 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          body_type: string | null
+          brand_model: string | null
+          brand_name: string | null
+          category: string | null
           challans_count: number | null
           chassis_number: string | null
+          class: string | null
           color: string | null
           created_at: string
+          cubic_capacity: string | null
+          cylinders: string | null
           engine_number: string | null
           fasttag_balance: number | null
           fasttag_last_synced_at: string | null
           fasttag_linked: boolean | null
+          father_name: string | null
           financer: string | null
+          fit_up_to: string | null
           fuel_type: string | null
           gps_device_id: string | null
           gps_linked: boolean | null
+          gross_weight: string | null
           id: string
+          insurance_company: string | null
           insurance_expiry: string | null
+          insurance_policy: string | null
           is_financed: boolean | null
           last_rc_refresh: string | null
           last_service_date: string | null
+          license_plate: string | null
           make: string | null
+          manufacturing_date: string | null
           model: string | null
+          national_permit_upto: string | null
           next_service_due: string | null
+          norms: string | null
           number: string
           odometer_reading: number | null
+          owner_count: number | null
           owner_name: string | null
           pay_tap_balance: number | null
           permanent_address: string | null
+          permit_valid_upto: string | null
           pollution_expiry: string | null
+          present_address: string | null
           rc_data_complete: boolean | null
+          rc_status: string | null
           rc_verification_status: string | null
           rc_verified_at: string | null
           registration_authority: string | null
           registration_date: string | null
           registration_expiry: string | null
+          rto_name: string | null
+          seating_capacity: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
+          tax_upto: string | null
+          unladen_weight: string | null
           updated_at: string
           user_id: string
           wallet_balance: number | null
+          wheelbase: string | null
           year: number | null
         }
         Insert: {
+          body_type?: string | null
+          brand_model?: string | null
+          brand_name?: string | null
+          category?: string | null
           challans_count?: number | null
           chassis_number?: string | null
+          class?: string | null
           color?: string | null
           created_at?: string
+          cubic_capacity?: string | null
+          cylinders?: string | null
           engine_number?: string | null
           fasttag_balance?: number | null
           fasttag_last_synced_at?: string | null
           fasttag_linked?: boolean | null
+          father_name?: string | null
           financer?: string | null
+          fit_up_to?: string | null
           fuel_type?: string | null
           gps_device_id?: string | null
           gps_linked?: boolean | null
+          gross_weight?: string | null
           id?: string
+          insurance_company?: string | null
           insurance_expiry?: string | null
+          insurance_policy?: string | null
           is_financed?: boolean | null
           last_rc_refresh?: string | null
           last_service_date?: string | null
+          license_plate?: string | null
           make?: string | null
+          manufacturing_date?: string | null
           model?: string | null
+          national_permit_upto?: string | null
           next_service_due?: string | null
+          norms?: string | null
           number: string
           odometer_reading?: number | null
+          owner_count?: number | null
           owner_name?: string | null
           pay_tap_balance?: number | null
           permanent_address?: string | null
+          permit_valid_upto?: string | null
           pollution_expiry?: string | null
+          present_address?: string | null
           rc_data_complete?: boolean | null
+          rc_status?: string | null
           rc_verification_status?: string | null
           rc_verified_at?: string | null
           registration_authority?: string | null
           registration_date?: string | null
           registration_expiry?: string | null
+          rto_name?: string | null
+          seating_capacity?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tax_upto?: string | null
+          unladen_weight?: string | null
           updated_at?: string
           user_id: string
           wallet_balance?: number | null
+          wheelbase?: string | null
           year?: number | null
         }
         Update: {
+          body_type?: string | null
+          brand_model?: string | null
+          brand_name?: string | null
+          category?: string | null
           challans_count?: number | null
           chassis_number?: string | null
+          class?: string | null
           color?: string | null
           created_at?: string
+          cubic_capacity?: string | null
+          cylinders?: string | null
           engine_number?: string | null
           fasttag_balance?: number | null
           fasttag_last_synced_at?: string | null
           fasttag_linked?: boolean | null
+          father_name?: string | null
           financer?: string | null
+          fit_up_to?: string | null
           fuel_type?: string | null
           gps_device_id?: string | null
           gps_linked?: boolean | null
+          gross_weight?: string | null
           id?: string
+          insurance_company?: string | null
           insurance_expiry?: string | null
+          insurance_policy?: string | null
           is_financed?: boolean | null
           last_rc_refresh?: string | null
           last_service_date?: string | null
+          license_plate?: string | null
           make?: string | null
+          manufacturing_date?: string | null
           model?: string | null
+          national_permit_upto?: string | null
           next_service_due?: string | null
+          norms?: string | null
           number?: string
           odometer_reading?: number | null
+          owner_count?: number | null
           owner_name?: string | null
           pay_tap_balance?: number | null
           permanent_address?: string | null
+          permit_valid_upto?: string | null
           pollution_expiry?: string | null
+          present_address?: string | null
           rc_data_complete?: boolean | null
+          rc_status?: string | null
           rc_verification_status?: string | null
           rc_verified_at?: string | null
           registration_authority?: string | null
           registration_date?: string | null
           registration_expiry?: string | null
+          rto_name?: string | null
+          seating_capacity?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tax_upto?: string | null
+          unladen_weight?: string | null
           updated_at?: string
           user_id?: string
           wallet_balance?: number | null
+          wheelbase?: string | null
           year?: number | null
         }
         Relationships: []

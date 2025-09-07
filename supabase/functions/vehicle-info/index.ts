@@ -284,18 +284,20 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     console.log('RC Lambda raw response data:', JSON.stringify(r, null, 2));
 
     const rcData = {
-      number: r.vehicle_number ?? r.registrationNumber ?? vehicleNumber,
-      model: r.model ?? r.vehicleModel ?? 'Not specified',
-      make: r.make ?? r.maker ?? null,
-      year: (r.mfgYear ?? r.manufacturing_year ?? r.year) ? (r.mfgYear ?? r.manufacturing_year ?? r.year) : null,
+      number: r.license_plate ?? r.vehicle_number ?? r.registrationNumber ?? vehicleNumber,
+      model: r.brand_model ?? r.model ?? r.vehicleModel ?? 'Not specified',
+      make: r.brand_name ?? r.make ?? r.maker ?? null,
+      year: r.manufacturing_date_formatted
+        ? parseInt(String(r.manufacturing_date_formatted).split('-')[0])
+        : (r.mfgYear ?? r.manufacturing_year ?? r.year ?? null),
       fuelType: r.fuel_type ?? r.fuelType ?? null,
       registrationDate: r.registration_date ?? r.registrationDate ?? null,
       ownerName: r.owner_name ?? r.ownerName ?? null,
-      chassisNumber: r.chassis_no ?? r.chassisNumber ?? r.chassis ?? null,
-      engineNumber: r.engine_no ?? r.engineNumber ?? r.engine ?? null,
-      registrationAuthority: r.registration_authority ?? r.registrationAuthority ?? null,
-      puccExpiry: r.pollution_expiry ?? r.puccExpiry ?? null,
-      fitnessExpiry: r.fitness_expiry ?? r.fitnessExpiry ?? null,
+      chassisNumber: r.chassis_number ?? r.chassis_no ?? r.chassisNumber ?? r.chassis ?? null,
+      engineNumber: r.engine_number ?? r.engine_no ?? r.engineNumber ?? r.engine ?? null,
+      registrationAuthority: r.rto_name ?? r.registration_authority ?? r.registrationAuthority ?? null,
+      puccExpiry: r.pucc_upto ?? r.pollution_expiry ?? r.puccExpiry ?? null,
+      fitnessExpiry: r.fit_up_to ?? r.fitness_expiry ?? r.fitnessExpiry ?? null,
       insuranceExpiry: r.insurance_expiry ?? r.insuranceExpiry ?? null,
       isFinanced: r.is_financed ?? r.isFinanced ?? false,
       financer: r.financer ?? null,

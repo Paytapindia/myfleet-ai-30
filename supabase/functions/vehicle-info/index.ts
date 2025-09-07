@@ -274,7 +274,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       }
 
       return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
-        status: res.status || 502,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -310,7 +310,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       }
 
       return new Response(JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }), {
-        status: res.status || 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -436,7 +436,7 @@ if (saveResult.error) {
       error: 'RC verification failed',
       details: error.message
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -50,6 +50,11 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     console.log(`RC verification attempt ${retryCount + 1} for vehicle: ${normalizedVehicleNumber}`);
 
     // Call our unified Supabase Edge Function for RC verification
+    console.log(`[vehicleApi] Calling vehicleinfo-api-club with payload:`, {
+      service: 'rc',
+      vehicleId: normalizedVehicleNumber
+    });
+    
     const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
       body: {
         service: 'rc',
@@ -59,6 +64,8 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
         'Authorization': `Bearer ${session.access_token}`
       }
     });
+    
+    console.log(`[vehicleApi] Edge function response:`, { data, error });
 
     if (error) {
       console.error('RC verification error:', error);

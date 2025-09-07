@@ -21,16 +21,23 @@ const VehicleDetailsPopover = ({ vehicleNumber }: VehicleDetailsPopoverProps) =>
     setError(null);
     
     try {
+      console.log(`[VehicleDetailsPopover] Starting fetch for vehicle: ${vehicleNumber}`);
       const details = await fetchVehicleDetails(vehicleNumber);
+      console.log(`[VehicleDetailsPopover] Fetch completed:`, details);
       setVehicleDetails(details);
       
       if (!details.success) {
+        console.error(`[VehicleDetailsPopover] Fetch failed:`, details.error);
         setError(details.error || 'Failed to fetch vehicle details');
+      } else {
+        console.log(`[VehicleDetailsPopover] Fetch successful`);
       }
     } catch (err) {
-      setError('Network error occurred');
+      console.error(`[VehicleDetailsPopover] Exception during fetch:`, err);
+      setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
+      console.log(`[VehicleDetailsPopover] Fetch process completed`);
     }
   };
 

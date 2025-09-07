@@ -29,7 +29,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Authorization header missing' 
       }), {
-        status: 200,
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -42,7 +42,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Invalid authorization token' 
       }), {
-        status: 200,
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -50,25 +50,20 @@ serve(async (req: Request) => {
     const rawBody = await req.json().catch(() => null);
     if (!rawBody) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid JSON in request' }), {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('Incoming body keys:', Object.keys(rawBody));
-    console.log('Incoming body values:', JSON.stringify(rawBody, null, 2));
+    console.log('Incoming request body:', rawBody);
     const { type, vehicleNumber, vehicleId, chassis, engine_no } = rawBody;
-    console.log('Parsed values - type:', type, 'vehicleNumber:', vehicleNumber, 'vehicleId:', vehicleId);
 
     // Validate request
     if (!type || !(vehicleNumber || vehicleId)) {
-      console.error('Validation failed - type:', type, 'vehicleNumber:', vehicleNumber, 'vehicleId:', vehicleId);
-      console.error('Full request body for debugging:', JSON.stringify(rawBody, null, 2));
       return new Response(JSON.stringify({ 
         success: false, 
-        error: `Missing required params: type (${type}), vehicleId (${vehicleId || vehicleNumber})`,
-        received: { type, vehicleNumber, vehicleId, allKeys: Object.keys(rawBody || {}) }
+        error: 'Missing required params: type, vehicleId' 
       }), {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -79,13 +74,12 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Invalid service type. Must be: rc, fastag, or challan' 
       }), {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Authenticated user: ${user.id}`);
-    console.log(`Processing ${type} for vehicle ${vehicleNumber || vehicleId}`);
+    console.log(`Processing ${type} request for vehicle: ${vehicleNumber || vehicleId}`);
 
     // Handle service-specific logic
     switch (type) {
@@ -96,6 +90,15 @@ serve(async (req: Request) => {
         return await handleFastagVerification(supabase, user.id, vehicleNumber || vehicleId);
       
       case 'challan':
+        if (!chassis || !engine_no) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Chassis and engine_no are required for challan verification' 
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no, rawBody.forceRefresh);
       
       default:
@@ -103,7 +106,7 @@ serve(async (req: Request) => {
           success: false, 
           error: 'Unknown service type' 
         }), {
-          status: 200,
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
@@ -114,34 +117,22 @@ serve(async (req: Request) => {
       success: false, 
       error: 'Internal server error' 
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
 // Helper: fetch with timeout and robust parsing of Lambda responses
-const DEFAULT_TIMEOUT_MS = 45000;
+const DEFAULT_TIMEOUT_MS = 15000;
 async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let rawText = '';
   try {
-    // Get proxy token from environment
-    const proxyToken = Deno.env.get('AWS_LAMBDA_PROXY_TOKEN') || Deno.env.get('SHARED_PROXY_TOKEN');
-    
-    const headers: Record<string, string> = { 
-      'Content-Type': 'application/json'
-    };
-    
-    // Add proxy token header if available
-    if (proxyToken) {
-      headers['X-Proxy-Token'] = proxyToken;
-    }
-    
     const res = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -172,42 +163,6 @@ function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
   return false;
 }
 
-// Helper to safely map date strings to Postgres DATE (YYYY-MM-DD) or null
-function toDateOrNull(input: any): string | null {
-  if (input === null || input === undefined) return null;
-  const s = String(input).trim();
-  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') return null;
-  const yyyy_mm_dd = /^\d{4}-\d{2}-\d{2}$/;
-  if (yyyy_mm_dd.test(s)) return s;
-  const dd_mm_yyyy = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-  const mm_dd_yyyy_dash = /^(\d{2})-(\d{2})-(\d{4})$/;
-  const mm_yyyy_slash = /^(\d{2})\/(\d{4})$/;
-  const yyyy_mm = /^(\d{4})-(\d{2})$/;
-  let y: string, m: string, d: string;
-  let match: RegExpMatchArray | null;
-  if ((match = s.match(dd_mm_yyyy))) {
-    d = match[1]; m = match[2]; y = match[3];
-    return `${y}-${m}-${d}`;
-  }
-  if ((match = s.match(mm_dd_yyyy_dash))) {
-    m = match[1]; d = match[2]; y = match[3];
-    return `${y}-${m}-${d}`;
-  }
-  if ((match = s.match(mm_yyyy_slash))) {
-    m = match[1]; y = match[2];
-    return `${y}-${m}-01`;
-  }
-  if ((match = s.match(yyyy_mm))) {
-    y = match[1]; m = match[2];
-    return `${y}-${m}-01`;
-  }
-  const dt = new Date(s);
-  if (!isNaN(dt.getTime())) {
-    return dt.toISOString().slice(0, 10);
-  }
-  return null;
-}
-
 async function handleRCVerification(supabase: any, userId: string, vehicleNumber: string) {
   try {
     // Check for cached data
@@ -219,33 +174,27 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       .single();
 
     if (existingVehicle && existingVehicle.rc_verified_at) {
-      console.log('Found existing RC data for vehicle:', vehicleNumber);
+      console.log('Returning cached RC data');
       return new Response(JSON.stringify({
         success: true,
         data: {
-          // Standardized field names that match frontend expectations
           number: existingVehicle.number,
-          model: existingVehicle.model || 'Not specified',
-          make: existingVehicle.make || null,
-          year: existingVehicle.year || null,
-          fuelType: existingVehicle.fuel_type || null,
+          model: existingVehicle.model || '',
+          make: existingVehicle.make,
+          year: existingVehicle.year,
+          fuelType: existingVehicle.fuel_type,
           registrationDate: existingVehicle.registration_date,
-          ownerName: existingVehicle.owner_name || null,
-          chassisNumber: existingVehicle.chassis_number || null,
-          engineNumber: existingVehicle.engine_number || null,
-          registrationAuthority: existingVehicle.registration_authority || null,
-          puccExpiry: existingVehicle.pollution_expiry,
-          fitnessExpiry: null, // Not stored in current schema
-          insuranceExpiry: existingVehicle.insurance_expiry,
-          isFinanced: existingVehicle.is_financed || false,
-          financer: existingVehicle.financer || null,
-          permanentAddress: existingVehicle.permanent_address || null
+          ownerName: existingVehicle.owner_name,
+          chassisNumber: existingVehicle.chassis_number,
+          engineNumber: existingVehicle.engine_number,
+          registrationAuthority: existingVehicle.registration_authority,
+          fitnessExpiry: existingVehicle.fitness_expiry,
+          puccExpiry: existingVehicle.pucc_expiry,
+          insuranceExpiry: existingVehicle.insurance_expiry
         },
-        cached: true,
-        source: 'database'
+        cached: true
       }), {
-        headers: corsHeaders,
-        status: 200
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -256,51 +205,21 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     }
 
     const payload = {
-      service: 'rc',
+      type: 'rc',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
 
     const res = await fetchLambda(lambdaUrl, payload);
     if (!res.parsed) {
-      // Attempt fallback to last successful RC verification
-      const { data: fallbackVerification } = await supabase
-        .from('rc_verifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('vehicle_number', vehicleNumber)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (fallbackVerification && fallbackVerification.verification_data) {
-        console.log('[RC] Using cached fallback data from rc_verifications');
-        return new Response(
-          JSON.stringify({ success: true, data: fallbackVerification.verification_data, cached: true, verifiedAt: fallbackVerification.created_at }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
-        status: 200,
+        status: res.status || 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     const lambdaData = res.parsed;
 
     if (!lambdaSucceeded(res)) {
-      // Try fallback to last successful RC verification if available
-      const { data: fallbackVerification } = await supabase
-        .from('rc_verifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('vehicle_number', vehicleNumber)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
       // Log failed verification
       await supabase
         .from('rc_verifications')
@@ -311,141 +230,56 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
           error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
         });
 
-      if (fallbackVerification && fallbackVerification.verification_data) {
-        console.log('[RC] Using cached data after failure');
-        return new Response(JSON.stringify({ success: true, data: fallbackVerification.verification_data, cached: true, verifiedAt: fallbackVerification.created_at }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
       return new Response(JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }), {
-        status: 200,
+        status: res.status || 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update/create vehicle record with RC data - Enhanced with logging
-    const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
-    console.log('RC Lambda raw response data:', JSON.stringify(r, null, 2));
-
-    const rcData = {
-      number: r.license_plate ?? r.vehicle_number ?? r.registrationNumber ?? vehicleNumber,
-      model: r.brand_model ?? r.model ?? r.vehicleModel ?? 'Not specified',
-      make: r.brand_name ?? r.make ?? r.maker ?? null,
-      year: r.manufacturing_date_formatted
-        ? parseInt(String(r.manufacturing_date_formatted).split('-')[0])
-        : (r.mfgYear ?? r.manufacturing_year ?? r.year ?? null),
-      fuelType: r.fuel_type ?? r.fuelType ?? null,
-      registrationDate: r.registration_date ?? r.registrationDate ?? null,
-      ownerName: r.owner_name ?? r.ownerName ?? null,
-      chassisNumber: r.chassis_number ?? r.chassis_no ?? r.chassisNumber ?? r.chassis ?? null,
-      engineNumber: r.engine_number ?? r.engine_no ?? r.engineNumber ?? r.engine ?? null,
-      registrationAuthority: r.rto_name ?? r.registration_authority ?? r.registrationAuthority ?? null,
-      puccExpiry: r.pucc_upto ?? r.pollution_expiry ?? r.puccExpiry ?? null,
-      fitnessExpiry: r.fit_up_to ?? r.fitness_expiry ?? r.fitnessExpiry ?? null,
-      insuranceExpiry: r.insurance_expiry ?? r.insuranceExpiry ?? null,
-      isFinanced: r.is_financed ?? r.isFinanced ?? false,
-      financer: r.financer ?? null,
-      permanentAddress: r.permanent_address ?? r.permanentAddress ?? null
-    };
-
-    console.log('Parsed RC data for frontend:', JSON.stringify(rcData, null, 2));
-
-const vehicleData = {
+    // Update/create vehicle record with RC data
+    const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
-      model: rcData.model,
-      make: rcData.make,
-      year: rcData.year,
-      fuel_type: rcData.fuelType,
-      registration_date: toDateOrNull(rcData.registrationDate),
-      owner_name: rcData.ownerName,
-      chassis_number: rcData.chassisNumber,
-      engine_number: rcData.engineNumber,
-      registration_authority: rcData.registrationAuthority,
-      insurance_expiry: toDateOrNull(rcData.insuranceExpiry),
-      pollution_expiry: toDateOrNull(rcData.puccExpiry),
-      registration_expiry: toDateOrNull(r.registration_expiry ?? r.registration_valid_upto ?? null),
-      fit_up_to: toDateOrNull(rcData.fitnessExpiry),
-      manufacturing_date: toDateOrNull(r.manufacturing_date_formatted ?? r.manufacturing_date ?? null),
-      is_financed: rcData.isFinanced,
-      financer: rcData.financer,
-      permanent_address: rcData.permanentAddress,
+      model: lambdaData.data.model || 'Not specified',
+      make: lambdaData.data.make,
+      year: lambdaData.data.year ? parseInt(lambdaData.data.year) : null,
+      fuel_type: lambdaData.data.fuelType,
+      registration_date: lambdaData.data.registrationDate,
+      owner_name: lambdaData.data.ownerName,
+      chassis_number: lambdaData.data.chassisNumber,
+      engine_number: lambdaData.data.engineNumber,
+      registration_authority: lambdaData.data.registrationAuthority,
+      fitness_expiry: lambdaData.data.fitnessExpiry,
+      pucc_expiry: lambdaData.data.puccExpiry,
+      insurance_expiry: lambdaData.data.insuranceExpiry,
       rc_verified_at: new Date().toISOString(),
-      rc_verification_status: 'verified',
-      last_rc_refresh: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
-    console.log('Vehicle data to save to database:', JSON.stringify(vehicleData, null, 2));
-
-    // Save to database with error handling
-    let saveResult;
     if (existingVehicle) {
-      saveResult = await supabase
+      await supabase
         .from('vehicles')
         .update(vehicleData)
-        .eq('id', existingVehicle.id)
-        .select();
+        .eq('id', existingVehicle.id);
     } else {
-      saveResult = await supabase
+      await supabase
         .from('vehicles')
-        .insert({ ...vehicleData, status: 'active' })
-        .select();
+        .insert({ ...vehicleData, status: 'active' });
     }
 
-    if (saveResult.error) {
-      console.error('CRITICAL: Failed to save RC data to database:', saveResult.error);
-      console.error('Vehicle data that failed to save:', JSON.stringify(vehicleData, null, 2));
-      
-      // Log failed verification
-      await supabase
-        .from('rc_verifications')
-        .insert({
-          user_id: userId,
-          vehicle_number: vehicleNumber,
-          status: 'failed',
-          error_message: `DB save error: ${saveResult.error.message || 'unknown'}`,
-          verification_data: rcData,
-          request_id: r.request_id || null
-        });
-      
-      // Return failure since DB save failed
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Failed to save vehicle data',
-        details: saveResult.error.message
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Log verification
+    await supabase
+      .from('rc_verifications')
+      .insert({
+        user_id: userId,
+        vehicle_number: vehicleNumber,
+        status: 'completed',
+        verification_data: lambdaData.data
       });
-    } else {
-      console.log('SUCCESS: RC data saved to database:', saveResult.data);
-      
-      // Log successful verification
-      await supabase
-        .from('rc_verifications')
-        .insert({
-          user_id: userId,
-          vehicle_number: vehicleNumber,
-          status: 'completed',
-          verification_data: rcData,
-          request_id: r.request_id || null
-        });
-    }
 
-    console.log('Final RC response being sent to frontend:', JSON.stringify(rcData, null, 2));
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: rcData, 
-        cached: false, 
-        source: 'api',
-        verifiedAt: new Date().toISOString() 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify(lambdaData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('RC verification error:', error);
@@ -454,7 +288,7 @@ const vehicleData = {
       error: 'RC verification failed',
       details: error.message
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -474,7 +308,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .single();
 
     if (recentVerification && recentVerification.verification_data) {
       console.log('Returning cached FASTag data');
@@ -519,24 +353,30 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     }
 
     const payload = {
-      service: 'fastag',
+      type: 'fastag',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
 
-    // Fast path retry logic tuned for <20s total
-    const startMs = Date.now();
-    let res = await fetchLambda(lambdaUrl, payload, 12000);
+    // Enhanced retry logic with exponential backoff - Phase 3 implementation
+    let res = await fetchLambda(lambdaUrl, payload, 30000);
     
-    // Single quick retry on transient errors/timeouts
-    if ((!res.parsed || res.status === 0 || res.status === 502)) {
-      const elapsed1 = Date.now() - startMs;
-      console.log(`[FASTag] First attempt elapsed ${elapsed1}ms; quick retry after 1500ms...`);
-      await new Promise((r) => setTimeout(r, 1500));
-      res = await fetchLambda(lambdaUrl, payload, 10000);
+    // Retry up to 2 times with exponential backoff for timeouts/502s
+    const maxRetries = 2;
+    let retryDelay = 1000; // Start with 1 second
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      if (res.parsed && lambdaSucceeded(res)) break;
+      
+      if (res.status === 502 || res.status === 0 || !res.parsed) {
+        console.log(`[FASTag] Retry ${attempt}/${maxRetries} after ${retryDelay}ms delay...`);
+        await new Promise((r) => setTimeout(r, retryDelay));
+        res = await fetchLambda(lambdaUrl, payload, 30000);
+        retryDelay *= 2; // Exponential backoff: 1s, 2s
+      } else {
+        break; // Don't retry on other errors
+      }
     }
-    const totalElapsed = Date.now() - startMs;
-    console.log(`[FASTag] Lambda attempts total elapsed: ${totalElapsed}ms`);
     // Phase 2: Progressive fallback - always return 200 with error details
     if (!res.parsed) {
       console.log('[FASTag] Lambda returned invalid response, checking for fallback data...');
@@ -553,7 +393,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .gte('created_at', sixHoursAgo)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
       
       // If no 6-hour cache, try any historical data
       if (!fallbackData.data) {
@@ -565,7 +405,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           .eq('status', 'completed')
           .order('created_at', { ascending: false })
           .limit(1)
-        .maybeSingle();
+          .single();
       }
       
       if (fallbackData.data && fallbackData.data.verification_data) {
@@ -608,25 +448,18 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       });
     }
     const lambdaData = res.parsed;
-    console.log('[FASTag] Raw Lambda response:', JSON.stringify(lambdaData, null, 2));
 
     if (lambdaSucceeded(res)) {
-      const r = lambdaData.response || lambdaData.data || lambdaData.result || lambdaData || {};
-      console.log('[FASTag] Extracted response data:', JSON.stringify(r, null, 2));
-      
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
       const fastagData = {
-        balance: parseFloat(r.available_balance || r.balance || r.current_balance || 0),
-        linked: (r.tag_status || r.status || '').toLowerCase() === 'active' || 
-                (r.tag_status || r.status || '').toLowerCase() === 'linked' ||
-                Boolean(r.tag_id || r.tagId),
-        tagId: r.tag_id || r.tagId || r.fasttag_id || undefined,
-        status: r.tag_status || r.status || r.fastag_status || 'unknown',
-        lastTransactionDate: r.last_transaction_date || r.lastTransactionDate || r.last_txn_date || undefined,
-        vehicleNumber: r.vehicle_number || r.vehicleNumber || r.license_plate || vehicleNumber,
-        bankName: r.bank_name || r.bankName || r.issuing_bank || r.issuer || undefined,
+        balance: typeof r.balance === 'number' ? r.balance : 0,
+        linked: typeof r.tag_status === 'string' ? r.tag_status.toLowerCase() === 'active' : false,
+        tagId: r.tag_id ?? r.tagId ?? undefined,
+        status: r.tag_status ?? r.status ?? undefined,
+        lastTransactionDate: r.last_transaction_date ?? r.lastTransactionDate ?? undefined,
+        vehicleNumber: r.vehicle_number ?? r.vehicleNumber ?? vehicleNumber,
+        bankName: r.bank_name ?? r.bankName ?? undefined,
       };
-      
-      console.log('[FASTag] Mapped FASTag data:', JSON.stringify(fastagData, null, 2));
 
       // Update verification record with success
       await supabase
@@ -663,7 +496,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
 
       // Update pending record with failure
       await supabase
@@ -725,7 +558,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
         
       if (emergencyFallback && emergencyFallback.verification_data) {
         console.log('[FASTag] Emergency fallback to any available data');
@@ -760,35 +593,8 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
   }
 }
 
-async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis?: string, engine_no?: string, forceRefresh = false) {
+async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis: string, engine_no: string, forceRefresh = false) {
   try {
-    // Defensive fetching of chassis and engine numbers if missing
-    if (!chassis || !engine_no) {
-      console.log('Missing chassis/engine numbers, fetching from database...');
-      const { data: vehicleData } = await supabase
-        .from('vehicles')
-        .select('chassis_number, engine_number')
-        .eq('user_id', userId)
-        .eq('number', vehicleNumber)
-        .maybeSingle();
-      
-      if (vehicleData) {
-        chassis = chassis || vehicleData.chassis_number;
-        engine_no = engine_no || vehicleData.engine_number;
-        console.log('Fetched from DB - chassis:', !!chassis, 'engine:', !!engine_no);
-      }
-      
-      if (!chassis || !engine_no) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Chassis and engine numbers are required for challan verification', 
-          details: 'Please complete RC verification first to get these details'
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
     // Check for recent cached data (within 30 minutes) unless force refresh
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     
@@ -804,7 +610,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .gte('created_at', thirtyMinutesAgo)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
       recentVerification = data;
     }
 
@@ -872,102 +678,20 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     }
 
     const payload = {
-      service: 'challans',
+      type: 'challan',
       vehicleId: vehicleNumber,
       chassis,
       engine_no,
     };
     console.log('Forwarding to Lambda:', payload);
     // Increase timeout for challans (can be slower upstream)
-    const startMs = Date.now();
-    let res = await fetchLambda(lambdaUrl, payload, 45000);
-    
-    // Single retry on timeout/network errors after 30s fallback check
-    if (!res.parsed || res.status === 0 || res.status === 502) {
-      const elapsed1 = Date.now() - startMs;
-      console.log(`[Challans] First attempt elapsed ${elapsed1}ms; checking cache before retry...`);
-      
-      // Check for any cached data as fallback before retry
-      const { data: fallbackData } = await supabase
-        .from('challan_verifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('vehicle_number', vehicleNumber)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (fallbackData && fallbackData.verification_data && elapsed1 > 30000) {
-        console.log('[Challans] Using cached fallback after 30s timeout');
-        // Update vehicle with cached data
-        await supabase
-          .from('vehicles')
-          .update({
-            challans_count: Array.isArray(fallbackData.verification_data.challans) 
-              ? fallbackData.verification_data.challans.length 
-              : 0,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('number', vehicleNumber);
-          
-        return new Response(JSON.stringify({
-          success: true,
-          data: fallbackData.verification_data,
-          cached: true,
-          verifiedAt: fallbackData.created_at,
-          warning: 'Live service timeout, showing cached data'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      // Quick retry if no cached data or under 30s
-      if (elapsed1 < 30000) {
-        console.log('[Challans] Quick retry after network error...');
-        await new Promise((r) => setTimeout(r, 2000));
-        res = await fetchLambda(lambdaUrl, payload, 15000);
-      }
-    }
-    
-    const totalElapsed = Date.now() - startMs;
-    console.log(`[Challans] Total elapsed: ${totalElapsed}ms`);
+    const res = await fetchLambda(lambdaUrl, payload, 30000);
     console.log('[Lambda] Raw response:', res.rawText);
     if (!res.parsed) {
-      // Final fallback to any historical data
-      const { data: emergencyFallback } = await supabase
-        .from('challan_verifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('vehicle_number', vehicleNumber)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-        
-      if (emergencyFallback && emergencyFallback.verification_data) {
-        console.log('[Challans] Using emergency fallback data');
-        return new Response(JSON.stringify({
-          success: true,
-          data: emergencyFallback.verification_data,
-          cached: true,
-          verifiedAt: emergencyFallback.created_at,
-          warning: 'Service unavailable, showing last known data'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Service temporarily unavailable', 
-          details: 'Unable to fetch live data and no cached data available',
-          retryAfter: 300 // 5 minutes
-        }),
+        JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
         {
-          status: 200,
+          status: res.status || 502,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -1053,7 +777,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
 
       return new Response(
         JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: res.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -1064,7 +788,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       error: 'Challans verification failed',
       details: error.message
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

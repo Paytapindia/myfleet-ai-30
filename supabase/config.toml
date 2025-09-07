@@ -27,6 +27,3 @@ verify_jwt = true
 
 [functions.vehicle-info]
 verify_jwt = true
-
-[functions.vehicleinfo-api-club]
-verify_jwt = true

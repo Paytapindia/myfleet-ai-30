@@ -36,9 +36,9 @@ export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promi
       };
     }
     
-    const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
+    const { data, error } = await supabase.functions.invoke('vehicle-info', {
       body: {
-        service: 'fastag',
+        type: 'fastag',
         vehicleId: vehicleNumber
       },
       headers: {

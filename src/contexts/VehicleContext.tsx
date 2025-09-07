@@ -118,138 +118,65 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
     refreshVehicles();
   }, [refreshVehicles]);
 
-  // Set up real-time subscription for vehicle updates
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('vehicles-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'vehicles',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Vehicle updated in real-time:', payload);
-          const updatedVehicle = payload.new;
-          
-          // Update the specific vehicle in local state
-          setVehicles(prev => prev.map(vehicle => 
-            vehicle.id === updatedVehicle.id 
-              ? mapVehicle(updatedVehicle)
-              : vehicle
-          ));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, mapVehicle]);
-
   const addVehicle = async (vehicleData: AddVehicleFormData) => {
     if (!user) return;
+    setIsLoading(true);
 
-    // Step 1: Add the basic vehicle record immediately (fast operation)
-    const { data: newVehicle, error: vehicleError } = await supabase
-      .from('vehicles')
-      .insert({
-        user_id: user.id,
-        number: vehicleData.number,
-        model: 'Not specified',
-        pay_tap_balance: 0,
-        fasttag_linked: false,
-        gps_linked: false,
-        challans_count: 0,
-        rc_verification_status: 'verifying'
-      })
-      .select()
-      .single();
-
-    if (vehicleError) {
-      console.error('Failed to add vehicle:', vehicleError);
-      throw vehicleError;
-    }
-
-    // Step 2: Add vehicle to local state immediately (optimistic update)
-    const optimisticVehicle = mapVehicle(newVehicle);
-    setVehicles(prev => [optimisticVehicle, ...prev]);
-
-    // Step 3: Trigger RC verification in the background (don't await)
-    triggerBackgroundRCVerification(vehicleData.number);
-  };
-
-  const triggerBackgroundRCVerification = async (vehicleNumber: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error('No active session for RC verification');
-        return;
-      }
-
-      const { data: rcData, error: rcError } = await supabase.functions.invoke('vehicleinfo-api-club', {
-        body: { 
-          service: 'rc', 
-          vehicleId: vehicleNumber 
-        },
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-
-      if (rcError) {
-        console.error('RC verification failed:', rcError);
-        // Update vehicle status to show verification failed
-        await supabase
-          .from('vehicles')
-          .update({
-            rc_verification_status: 'failed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user!.id)
-          .eq('number', vehicleNumber);
-      } else if (rcData?.success) {
-        console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
-        // Vehicle data is automatically updated by the edge function
-      }
-    } catch (rcError) {
-      console.error('RC verification error:', rcError);
-      // Update vehicle status to show verification failed
-      await supabase
+      // First, add the basic vehicle record
+      const { data: newVehicle, error: vehicleError } = await supabase
         .from('vehicles')
-        .update({
-          rc_verification_status: 'failed',
-          updated_at: new Date().toISOString()
+        .insert({
+          user_id: user.id,
+          number: vehicleData.number,
+          model: 'Not specified',
+          pay_tap_balance: 0,
+          fasttag_linked: false,
+          gps_linked: false,
+          challans_count: 0,
+          rc_verification_status: 'pending'
         })
-        .eq('user_id', user!.id)
-        .eq('number', vehicleNumber);
+        .select()
+        .single();
+
+      if (vehicleError) {
+        console.error('Failed to add vehicle:', vehicleError);
+        throw vehicleError;
+      }
+
+      // Trigger RC verification to fetch and cache vehicle details
+      try {
+        const { data: rcData, error: rcError } = await supabase.functions.invoke('rc-verification', {
+          body: { vehicleNumber: vehicleData.number }
+        });
+
+        if (rcError) {
+          console.error('RC verification failed:', rcError);
+          // Don't throw error here - vehicle was already added successfully
+        } else if (rcData?.success) {
+          console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
+        }
+      } catch (rcError) {
+        console.error('RC verification error:', rcError);
+        // Don't throw error here - vehicle was already added successfully
+      }
+
+      await refreshVehicles();
+    } catch (error) {
+      console.error('Failed to add vehicle:', error);
+      throw error;
     }
   };
 
   const removeVehicle = async (vehicleId: string) => {
-    // Optimistic update - remove from local state immediately
-    setVehicles(prev => prev.filter(v => v.id !== vehicleId));
-    
+    setIsLoading(true);
     const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
-    if (error) {
-      console.error('Failed to remove vehicle:', error);
-      // Revert optimistic update on error
-      await refreshVehicles();
-    }
+    if (error) console.error('Failed to remove vehicle:', error);
+    await refreshVehicles();
   };
 
   const updateVehicle = async (vehicleId: string, updates: Partial<Vehicle>) => {
-    // Optimistic update - update local state immediately
-    setVehicles(prev => prev.map(vehicle => 
-      vehicle.id === vehicleId 
-        ? { ...vehicle, ...updates }
-        : vehicle
-    ));
-
+    setIsLoading(true);
     const payload: any = {};
     if (updates.model !== undefined) payload.model = updates.model;
     if (updates.gpsLinked !== undefined) payload.gps_linked = updates.gpsLinked;
@@ -258,15 +185,13 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (updates.challans !== undefined) payload.challans_count = updates.challans;
 
     const { error } = await supabase.from('vehicles').update(payload).eq('id', vehicleId);
-    if (error) {
-      console.error('Failed to update vehicle:', error);
-      // Revert optimistic update on error
-      await refreshVehicles();
-    }
+    if (error) console.error('Failed to update vehicle:', error);
+    await refreshVehicles();
   };
 
   const assignDriverToVehicle = async (vehicleId: string, driverId: string) => {
     if (!user) return;
+    setIsLoading(true);
 
     // Deactivate existing active assignment for this vehicle
     await supabase
@@ -282,27 +207,21 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
       driver_id: driverId,
       is_active: true,
     });
-    if (error) {
-      console.error('Failed to assign driver:', error);
-    } else {
-      // Refresh only this specific vehicle's assignment
-      await refreshVehicles();
-    }
+    if (error) console.error('Failed to assign driver:', error);
+
+    await refreshVehicles();
   };
 
   const unassignDriverFromVehicle = async (vehicleId: string, driverId: string) => {
+    setIsLoading(true);
     const { error } = await supabase
       .from('vehicle_assignments')
       .update({ is_active: false, unassigned_at: new Date().toISOString() })
       .eq('vehicle_id', vehicleId)
       .eq('driver_id', driverId)
       .eq('is_active', true);
-    if (error) {
-      console.error('Failed to unassign driver:', error);
-    } else {
-      // Refresh only this specific vehicle's assignment
-      await refreshVehicles();
-    }
+    if (error) console.error('Failed to unassign driver:', error);
+    await refreshVehicles();
   };
 
   return (

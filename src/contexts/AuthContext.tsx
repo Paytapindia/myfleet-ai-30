@@ -38,7 +38,6 @@ interface AuthContextType {
   startTrial: () => Promise<void>;
   setPaidSubscription: (tier: 'semiannual' | 'annual') => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<{ error?: string }>;
-  resetPassword: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -395,23 +394,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const resetPassword = async (email: string) => {
-    try {
-      const redirectUrl = `${window.location.origin}/auth/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
-      });
-
-      if (error) {
-        return { error: error.message };
-      }
-
-      return {};
-    } catch (error) {
-      return { error: 'Failed to send password reset email' };
-    }
-  };
-
   return (
     <AuthContext.Provider value={{
       user,
@@ -425,8 +407,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       updateProfile,
       startTrial,
       setPaidSubscription,
-      resendVerificationEmail,
-      resetPassword
+      resendVerificationEmail
     }}>
       {children}
     </AuthContext.Provider>

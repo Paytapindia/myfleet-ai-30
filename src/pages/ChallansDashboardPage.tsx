@@ -4,11 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Car, CreditCard, Eye, FileText, Search, Calendar, MapPin, IndianRupee, RefreshCw, Loader2 } from "lucide-react";
+import { AlertCircle, Car, CreditCard, Eye, FileText, Search, Calendar, MapPin, IndianRupee } from "lucide-react";
 import { useVehicles } from "@/contexts/VehicleContext";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 
 import { format } from "date-fns";
 
@@ -52,146 +51,62 @@ export default function ChallansDashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    if (vehicles.length > 0) {
-      fetchChallansData();
-    }
+    fetchChallansData();
   }, [vehicles]);
 
-  const fetchChallansData = async (forceRefresh = false) => {
+  const fetchChallansData = async () => {
     setIsLoading(true);
     try {
-      // Get authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Get user session for auth header
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Authentication required. Please log in.');
-      }
-
-      // Fetch all user vehicles with chassis and engine numbers
-      const { data: userVehicles, error: vehiclesError } = await supabase
-        .from('vehicles')
-        .select('id, number, chassis_number, engine_number')
-        .eq('user_id', user.id);
-
-      if (vehiclesError) {
-        throw new Error('Failed to fetch vehicles');
-      }
-
-      if (!userVehicles || userVehicles.length === 0) {
-        setChallans([]);
-        setSummary({
-          totalPending: 0,
-          totalAmount: 0,
-          overdueCount: 0,
-          paidThisMonth: 0
-        });
-        return;
-      }
-
-      // Fetch challans for each vehicle
-      const allChallans: Challan[] = [];
+      // TODO: Replace with actual API call
+      // const response = await challanApi.getAllChallans();
       
-      for (const vehicle of userVehicles) {
-        // Skip vehicles without required details
-        if (!vehicle.chassis_number || !vehicle.engine_number) {
-          console.log(`Skipping vehicle ${vehicle.number} - missing chassis/engine numbers`);
-          continue;
+      // Mock data for demonstration
+      const mockChallans: Challan[] = [
+        {
+          id: "1",
+          challanNumber: "CH001234",
+          vehicleNumber: "KA01AB1234",
+          vehicleId: vehicles[0]?.id || "1",
+          amount: 2000,
+          issueDate: "2024-01-15",
+          dueDate: "2024-02-15",
+          location: "MG Road, Bangalore",
+          violation: "Over Speed",
+          status: "pending",
+          penaltyAmount: 500,
+          courtFee: 200,
+          totalAmount: 2700
+        },
+        {
+          id: "2",
+          challanNumber: "CH001235",
+          vehicleNumber: "KA01AB5678",
+          vehicleId: vehicles[1]?.id || "2",
+          amount: 1500,
+          issueDate: "2024-01-20",
+          dueDate: "2024-02-20",
+          location: "Brigade Road, Bangalore",
+          violation: "Signal Jump",
+          status: "pending",
+          totalAmount: 1500
         }
-
-        try {
-          console.log(`Fetching challans for vehicle: ${vehicle.number}`);
-          
-          const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
-            body: {
-              service: 'challans',
-              vehicleId: vehicle.number,
-              chassis: vehicle.chassis_number,
-              engine_no: vehicle.engine_number,
-              forceRefresh
-            },
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`
-            }
-          });
-
-          if (error) {
-            console.error(`Error fetching challans for ${vehicle.number}:`, error);
-            continue; // Skip this vehicle but continue with others
-          }
-
-          if (data?.success && data?.data) {
-            const challansData = data.data;
-            
-            // Parse challans from various response formats
-            let challansArray: any[] = [];
-            
-            if (Array.isArray(challansData?.response?.challans)) {
-              challansArray = challansData.response.challans;
-            } else if (Array.isArray(challansData?.challans)) {
-              challansArray = challansData.challans;
-            } else if (Array.isArray(challansData?.data)) {
-              challansArray = challansData.data;
-            } else if (Array.isArray(challansData)) {
-              challansArray = challansData as any[];
-            }
-
-            // Convert to our challan format
-            const parsedChallans: Challan[] = challansArray.map((challan: any) => ({
-              id: `${vehicle.id}-${challan.challan_no || Math.random()}`,
-              challanNumber: challan.challan_no || 'N/A',
-              vehicleNumber: vehicle.number,
-              vehicleId: vehicle.id,
-              amount: parseFloat(challan.amount || '0'),
-              issueDate: challan.date || new Date().toISOString().split('T')[0],
-              dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              location: challan.area || challan.state || 'Unknown',
-              violation: challan.offence || 'Traffic Violation',
-              status: challan.challan_status === 'Cash' || challan.challan_status === 'Disposed' ? 'paid' : 'pending',
-              penaltyAmount: 0, // Calculate based on days overdue if needed
-              courtFee: 0,
-              totalAmount: parseFloat(challan.amount || '0')
-            }));
-
-            allChallans.push(...parsedChallans);
-          }
-        } catch (vehicleError) {
-          console.error(`Error processing vehicle ${vehicle.number}:`, vehicleError);
-          // Continue with other vehicles
-        }
-      }
-
-      setChallans(allChallans);
+      ];
       
-      // Calculate summary
-      const pendingChallans = allChallans.filter(c => c.status === 'pending');
-      const overdueChallans = pendingChallans.filter(c => new Date(c.dueDate) < new Date());
-      const paidThisMonth = allChallans.filter(c => 
-        c.status === 'paid' && 
-        new Date(c.issueDate).getMonth() === new Date().getMonth()
-      );
-
+      setChallans(mockChallans);
+      
+      const pendingChallans = mockChallans.filter(c => c.status === 'pending');
       setSummary({
         totalPending: pendingChallans.length,
         totalAmount: pendingChallans.reduce((sum, c) => sum + c.totalAmount, 0),
-        overdueCount: overdueChallans.length,
-        paidThisMonth: paidThisMonth.length
+        overdueCount: pendingChallans.filter(c => new Date(c.dueDate) < new Date()).length,
+        paidThisMonth: mockChallans.filter(c => c.status === 'paid' && 
+          new Date(c.issueDate).getMonth() === new Date().getMonth()).length
       });
-
-      toast({
-        title: "Challans Updated",
-        description: `Found ${allChallans.length} challan(s) across ${userVehicles.length} vehicle(s)`
-      });
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch challans:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to fetch challans data",
+        description: "Failed to fetch challans data",
         variant: "destructive"
       });
     } finally {
@@ -292,27 +207,10 @@ export default function ChallansDashboardPage() {
           <h1 className="text-3xl font-bold">Challans Dashboard</h1>
           <p className="text-muted-foreground">Manage traffic challans and fines for all vehicles</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => fetchChallansData(true)} 
-            variant="outline"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            Refresh
-          </Button>
-          <Button 
-            onClick={handleBulkPayment} 
-            disabled={filteredChallans.filter(c => c.status === 'pending').length === 0}
-          >
-            <CreditCard className="w-4 h-4 mr-2" />
-            Pay All Pending
-          </Button>
-        </div>
+        <Button onClick={handleBulkPayment} disabled={filteredChallans.filter(c => c.status === 'pending').length === 0}>
+          <CreditCard className="w-4 h-4 mr-2" />
+          Pay All Pending
+        </Button>
       </div>
 
       {/* Summary Cards */}

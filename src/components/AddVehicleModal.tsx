@@ -14,7 +14,6 @@ const AddVehicleModal = () => {
     number: ""
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'adding' | 'verifying' | 'complete'>('idle');
   
   const { addVehicle, vehicles } = useVehicles();
   const { toast } = useToast();
@@ -22,7 +21,6 @@ const AddVehicleModal = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setVerificationStatus('adding');
 
     try {
       // Validation
@@ -34,6 +32,7 @@ const AddVehicleModal = () => {
         });
         return;
       }
+
 
       // Check for duplicate vehicle number
       const isDuplicate = vehicles.some(vehicle => 
@@ -59,17 +58,15 @@ const AddVehicleModal = () => {
         return;
       }
 
-      // Add vehicle immediately (fast operation)
       await addVehicle(formData);
       
       toast({
         title: "Success",
-        description: "Vehicle added! RC verification is running in the background."
+        description: "Vehicle added and details verified successfully"
       });
 
-      // Reset form and close modal immediately
+      // Reset form and close modal
       setFormData({ number: "" });
-      setVerificationStatus('idle');
       setOpen(false);
     } catch (error) {
       toast({
@@ -79,7 +76,6 @@ const AddVehicleModal = () => {
       });
     } finally {
       setIsLoading(false);
-      setVerificationStatus('idle');
     }
   };
 
@@ -120,10 +116,7 @@ const AddVehicleModal = () => {
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading} className="flex-1">
-              {verificationStatus === 'adding' && "Adding Vehicle..."}
-              {verificationStatus === 'verifying' && "Verifying RC Details..."}
-              {verificationStatus === 'complete' && "Completed!"}
-              {verificationStatus === 'idle' && "Add Vehicle"}
+              {isLoading ? "Fetching Details..." : "Add Vehicle"}
             </Button>
           </div>
         </form>

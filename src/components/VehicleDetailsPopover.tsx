@@ -21,23 +21,16 @@ const VehicleDetailsPopover = ({ vehicleNumber }: VehicleDetailsPopoverProps) =>
     setError(null);
     
     try {
-      console.log(`[VehicleDetailsPopover] Starting fetch for vehicle: ${vehicleNumber}`);
       const details = await fetchVehicleDetails(vehicleNumber);
-      console.log(`[VehicleDetailsPopover] Fetch completed:`, details);
       setVehicleDetails(details);
       
       if (!details.success) {
-        console.error(`[VehicleDetailsPopover] Fetch failed:`, details.error);
         setError(details.error || 'Failed to fetch vehicle details');
-      } else {
-        console.log(`[VehicleDetailsPopover] Fetch successful`);
       }
     } catch (err) {
-      console.error(`[VehicleDetailsPopover] Exception during fetch:`, err);
-      setError(`Network error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError('Network error occurred');
     } finally {
       setIsLoading(false);
-      console.log(`[VehicleDetailsPopover] Fetch process completed`);
     }
   };
 
@@ -74,67 +67,21 @@ const handleRetry = async () => {
           </div>
           
           {isLoading && (
-            <div className="flex flex-col items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="mt-2 text-sm text-muted-foreground">Loading vehicle details...</span>
-              <span className="mt-1 text-xs text-muted-foreground">This may take up to 45 seconds</span>
+              <span className="ml-2 text-sm text-muted-foreground">Loading vehicle details...</span>
             </div>
           )}
 
 {error && (
-  <div className="space-y-3 py-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center space-x-2 text-destructive">
-        <AlertCircle className="h-4 w-4" />
-        <span className="text-sm font-medium">Verification failed</span>
-      </div>
-      <Button size="sm" variant="secondary" onClick={handleRetry}>
-        Retry
-      </Button>
+  <div className="flex items-center justify-between py-4">
+    <div className="flex items-center space-x-2 text-destructive">
+      <AlertCircle className="h-4 w-4" />
+      <span className="text-sm">{error}</span>
     </div>
-    
-    <div className="text-xs text-muted-foreground">
-      {error}
-    </div>
-
-    {/* Show diagnostics if available */}
-    {vehicleDetails && !vehicleDetails.success && (
-      <div className="border-t pt-3 space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Diagnostic Information:</p>
-        
-        {vehicleDetails.requestPayloadSent && (
-          <div>
-            <p className="text-xs text-muted-foreground">Request sent:</p>
-            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
-              {JSON.stringify(vehicleDetails.requestPayloadSent, null, 2)}
-            </pre>
-          </div>
-        )}
-        
-        {vehicleDetails.bodyPreview && (
-          <div>
-            <p className="text-xs text-muted-foreground">Response received:</p>
-            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
-              {vehicleDetails.bodyPreview}
-            </pre>
-          </div>
-        )}
-        
-        {vehicleDetails.upstreamStatus && (
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">HTTP Status:</span>
-            <span className="font-mono">{vehicleDetails.upstreamStatus}</span>
-          </div>
-        )}
-        
-        {vehicleDetails.envKeyUsed && (
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Endpoint:</span>
-            <span className="font-mono">{vehicleDetails.envKeyUsed}</span>
-          </div>
-        )}
-      </div>
-    )}
+    <Button size="sm" variant="secondary" onClick={handleRetry}>
+      Retry
+    </Button>
   </div>
 )}
 
@@ -143,13 +90,6 @@ const handleRetry = async () => {
               {vehicleDetails.cached && (
                 <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
                   ✓ Cached data (verified within 24h)
-                </div>
-              )}
-              
-              {/* Show data completeness indicator */}
-              {(!vehicleDetails.chassisNumber || !vehicleDetails.engineNumber) && (
-                <div className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200">
-                  ⚠️ Some vehicle details are incomplete
                 </div>
               )}
               

@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, LifeBuoy, AlertTriangle, Car, FileText, CreditCard, Mail, CheckCircle } from "lucide-react";
+import { Bell, User, LogOut, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,20 +16,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const DashboardHeader = () => {
-  const { user, logout, session, resendVerificationEmail } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isResendingEmail, setIsResendingEmail] = useState(false);
-
-  const handleResendEmail = async () => {
-    if (!session?.user?.email) return;
-    setIsResendingEmail(true);
-    await resendVerificationEmail(session.user.email);
-    setIsResendingEmail(false);
-  };
-
-  const isEmailUnverified = session?.user && !session.user.email_confirmed_at;
 
   // Mock vehicle alerts - replace with real data later
   const vehicleAlerts = [
@@ -38,21 +28,7 @@ const DashboardHeader = () => {
     { id: 3, vehicle: "MH12EF9012", message: "Fuel level low", type: "info", time: "1 day ago" },
   ];
 
-  // Include email verification in alerts if needed
-  const allAlerts = isEmailUnverified 
-    ? [
-        {
-          id: 'email-verification',
-          type: 'email',
-          vehicle: 'Email Verification',
-          message: 'Please verify your email address',
-          time: 'Action needed'
-        },
-        ...vehicleAlerts
-      ]
-    : vehicleAlerts;
-
-  const unreadCount = allAlerts.length;
+  const unreadCount = vehicleAlerts.length;
 
   return (
     <header className="sticky top-0 z-40 glass-effect border-b border-border/50 px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
@@ -73,12 +49,12 @@ const DashboardHeader = () => {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className={`relative apple-button rounded-xl h-11 w-11 hover:bg-primary/10 ${isEmailUnverified ? 'animate-pulse' : ''}`}
+                className="relative apple-button rounded-xl h-11 w-11 hover:bg-primary/10"
               >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
                   <Badge 
-                    variant={isEmailUnverified ? "destructive" : "secondary"}
+                    variant="destructive" 
                     className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                   >
                     {unreadCount}
@@ -88,44 +64,24 @@ const DashboardHeader = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 rounded-2xl apple-shadow glass-effect border-border/50">
               <DropdownMenuLabel className="flex items-center justify-between">
-                <span>Notifications</span>
+                <span>Vehicle Alerts</span>
                 <Badge variant="secondary">{unreadCount} new</Badge>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {allAlerts.length > 0 ? (
-                allAlerts.map((alert) => (
-                  <DropdownMenuItem 
-                    key={alert.id} 
-                    className="flex items-start gap-3 p-4 cursor-pointer"
-                    onClick={alert.id === 'email-verification' ? handleResendEmail : undefined}
-                  >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {alert.type === 'email' && <Mail className="h-4 w-4 text-orange-500" />}
-                      {alert.type === 'warning' && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
-                      {alert.type === 'urgent' && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                      {alert.type === 'info' && <Car className="h-4 w-4 text-blue-500" />}
+              {vehicleAlerts.length > 0 ? (
+                vehicleAlerts.map((alert) => (
+                  <DropdownMenuItem key={alert.id} className="flex flex-col items-start p-4">
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-medium text-sm">{alert.vehicle}</span>
+                      <Badge 
+                        variant={alert.type === 'urgent' ? 'destructive' : alert.type === 'warning' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {alert.type}
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="font-medium text-sm truncate">{alert.vehicle}</span>
-                        <Badge 
-                          variant={alert.type === 'urgent' || alert.type === 'email' ? 'destructive' : alert.type === 'warning' ? 'default' : 'secondary'}
-                          className="text-xs ml-2"
-                        >
-                          {alert.type === 'email' ? 'urgent' : alert.type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-1">{alert.message}</p>
-                      <span className="text-xs text-muted-foreground">
-                        {alert.id === 'email-verification' && isResendingEmail 
-                          ? 'Sending...' 
-                          : alert.time
-                        }
-                        {alert.id === 'email-verification' && !isResendingEmail && (
-                          <span className="ml-2 text-blue-600">Click to resend</span>
-                        )}
-                      </span>
-                    </div>
+                    <p className="text-sm text-muted-foreground mb-1">{alert.message}</p>
+                    <span className="text-xs text-muted-foreground">{alert.time}</span>
                   </DropdownMenuItem>
                 ))
               ) : (

@@ -307,7 +307,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
-      model: rcData.model || 'Not specified',
+      model: rcData.model,
       make: rcData.make,
       year: rcData.year,
       fuel_type: rcData.fuelType,
@@ -325,7 +325,6 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       rc_verified_at: new Date().toISOString(),
       rc_verification_status: 'verified',
       last_rc_refresh: new Date().toISOString(),
-      rc_data_complete: true,
       updated_at: new Date().toISOString()
     };
 

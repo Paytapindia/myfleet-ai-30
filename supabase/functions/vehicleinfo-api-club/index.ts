@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
       parsed = { raw: rawText };
     }
 
-    const ok = upstream.ok && !parsed?.error;
+    const ok = upstream.ok && !(parsed?.error || parsed?.success === false || parsed?.data?.success === false);
 
     // Best-effort mapping for RC to update DB (readiness relies on these fields)
     if (ok && service === 'rc') {
@@ -226,11 +226,11 @@ Deno.serve(async (req) => {
       const mapFrom = (root && typeof root === 'object') ? root : {};
 
       const owner_name = firstNonEmpty(mapFrom, ['ownerName', 'owner_name', 'owner']) || null;
-      const chassis_number = firstNonEmpty(mapFrom, ['chassisNumber', 'chassis_no', 'chassis']) || null;
-      const engine_number = firstNonEmpty(mapFrom, ['engineNumber', 'engine_no', 'engine']) || null;
-      const fuel_type = firstNonEmpty(mapFrom, ['fuelType', 'fuel_type']) || null;
-      const registration_date = firstNonEmpty(mapFrom, ['registrationDate', 'registration_date', 'regDate']) || null;
-      const registration_authority = firstNonEmpty(mapFrom, ['registrationAuthority', 'rto_name', 'rto', 'rtoName']) || null;
+      const chassis_number = firstNonEmpty(mapFrom, ['chassisNumber', 'chassis_number', 'chassis_no', 'chassis']) || null;
+      const engine_number = firstNonEmpty(mapFrom, ['engineNumber', 'engine_number', 'engine_no', 'engine']) || null;
+      const fuel_type = firstNonEmpty(mapFrom, ['fuelType', 'fuel_type', 'fuel']) || null;
+      const registration_date = firstNonEmpty(mapFrom, ['registrationDate', 'registration_date', 'regDate', 'regn_dt']) || null;
+      const registration_authority = firstNonEmpty(mapFrom, ['registrationAuthority', 'registering_authority', 'rto_name', 'rto', 'rtoName', 'registration_authority']) || null;
 
       const updates: Record<string, any> = {
         rc_verification_status: 'verified',
@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
         .eq('number', vehicleId);
     }
 
-    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl, envKeyUsed });
+    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl, envKeyUsed, upstreamStatus: upstream.status });
   } catch (e: any) {
     return jsonResponse({ success: false, error: 'Unexpected error', details: e?.message || String(e) });
   }

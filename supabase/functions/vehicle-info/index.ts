@@ -29,7 +29,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Authorization header missing' 
       }), {
-        status: 401,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -42,7 +42,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Invalid authorization token' 
       }), {
-        status: 401,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -50,11 +50,11 @@ serve(async (req: Request) => {
     const rawBody = await req.json().catch(() => null);
     if (!rawBody) {
       return new Response(JSON.stringify({ success: false, error: 'Invalid JSON in request' }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('Incoming request body:', rawBody);
+    console.log('Incoming body keys:', Object.keys(rawBody));
     const { type, vehicleNumber, vehicleId, chassis, engine_no } = rawBody;
 
     // Validate request
@@ -63,7 +63,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Missing required params: type, vehicleId' 
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -74,7 +74,7 @@ serve(async (req: Request) => {
         success: false, 
         error: 'Invalid service type. Must be: rc, fastag, or challan' 
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -90,15 +90,6 @@ serve(async (req: Request) => {
         return await handleFastagVerification(supabase, user.id, vehicleNumber || vehicleId);
       
       case 'challan':
-        if (!chassis || !engine_no) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: 'Chassis and engine_no are required for challan verification' 
-          }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
         return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no, rawBody.forceRefresh);
       
       default:
@@ -106,7 +97,7 @@ serve(async (req: Request) => {
           success: false, 
           error: 'Unknown service type' 
         }), {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
@@ -117,7 +108,7 @@ serve(async (req: Request) => {
       success: false, 
       error: 'Internal server error' 
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -130,9 +121,21 @@ async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs 
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let rawText = '';
   try {
+    // Get proxy token from environment
+    const proxyToken = Deno.env.get('AWS_LAMBDA_PROXY_TOKEN') || Deno.env.get('SHARED_PROXY_TOKEN');
+    
+    const headers: Record<string, string> = { 
+      'Content-Type': 'application/json'
+    };
+    
+    // Add proxy token header if available
+    if (proxyToken) {
+      headers['X-Proxy-Token'] = proxyToken;
+    }
+    
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -247,7 +250,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     }
 
     const payload = {
-      type: 'rc',
+      service: 'rc',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -263,7 +266,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fallbackVerification && fallbackVerification.verification_data) {
         console.log('[RC] Using cached fallback data from rc_verifications');
@@ -290,7 +293,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       // Log failed verification
       await supabase
@@ -385,15 +388,11 @@ const vehicleData = {
         .select();
     }
 
-if (saveResult.error) {
+    if (saveResult.error) {
       console.error('CRITICAL: Failed to save RC data to database:', saveResult.error);
       console.error('Vehicle data that failed to save:', JSON.stringify(vehicleData, null, 2));
-    } else {
-      console.log('SUCCESS: RC data saved to database:', saveResult.data);
-    }
-
-// Log verification with enhanced data (respect DB save result)
-    if (saveResult.error) {
+      
+      // Log failed verification
       await supabase
         .from('rc_verifications')
         .insert({
@@ -404,7 +403,20 @@ if (saveResult.error) {
           verification_data: rcData,
           request_id: r.request_id || null
         });
+      
+      // Return failure since DB save failed
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Failed to save vehicle data',
+        details: saveResult.error.message
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     } else {
+      console.log('SUCCESS: RC data saved to database:', saveResult.data);
+      
+      // Log successful verification
       await supabase
         .from('rc_verifications')
         .insert({
@@ -456,7 +468,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (recentVerification && recentVerification.verification_data) {
       console.log('Returning cached FASTag data');
@@ -501,7 +513,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     }
 
     const payload = {
-      type: 'fastag',
+      service: 'fastag',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -535,7 +547,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .gte('created_at', sixHoursAgo)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       // If no 6-hour cache, try any historical data
       if (!fallbackData.data) {
@@ -547,7 +559,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
           .eq('status', 'completed')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+        .maybeSingle();
       }
       
       if (fallbackData.data && fallbackData.data.verification_data) {
@@ -645,7 +657,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       // Update pending record with failure
       await supabase
@@ -707,7 +719,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
         
       if (emergencyFallback && emergencyFallback.verification_data) {
         console.log('[FASTag] Emergency fallback to any available data');
@@ -742,8 +754,35 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
   }
 }
 
-async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis: string, engine_no: string, forceRefresh = false) {
+async function handleChallansVerification(supabase: any, userId: string, vehicleNumber: string, chassis?: string, engine_no?: string, forceRefresh = false) {
   try {
+    // Defensive fetching of chassis and engine numbers if missing
+    if (!chassis || !engine_no) {
+      console.log('Missing chassis/engine numbers, fetching from database...');
+      const { data: vehicleData } = await supabase
+        .from('vehicles')
+        .select('chassis_number, engine_number')
+        .eq('user_id', userId)
+        .eq('number', vehicleNumber)
+        .maybeSingle();
+      
+      if (vehicleData) {
+        chassis = chassis || vehicleData.chassis_number;
+        engine_no = engine_no || vehicleData.engine_number;
+        console.log('Fetched from DB - chassis:', !!chassis, 'engine:', !!engine_no);
+      }
+      
+      if (!chassis || !engine_no) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Chassis and engine numbers are required for challan verification', 
+          details: 'Please complete RC verification first to get these details'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     // Check for recent cached data (within 30 minutes) unless force refresh
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     
@@ -759,7 +798,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .gte('created_at', thirtyMinutesAgo)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       recentVerification = data;
     }
 
@@ -827,7 +866,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     }
 
     const payload = {
-      type: 'challan',
+      service: 'challans',
       vehicleId: vehicleNumber,
       chassis,
       engine_no,
@@ -851,7 +890,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (fallbackData && fallbackData.verification_data && elapsed1 > 30000) {
         console.log('[Challans] Using cached fallback after 30s timeout');
@@ -899,7 +938,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
         
       if (emergencyFallback && emergencyFallback.verification_data) {
         console.log('[Challans] Using emergency fallback data');
@@ -922,7 +961,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
           retryAfter: 300 // 5 minutes
         }),
         {
-          status: 503,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -1008,7 +1047,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
 
       return new Response(
         JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }),
-        { status: res.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -1019,7 +1058,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       error: 'Challans verification failed',
       details: error.message
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

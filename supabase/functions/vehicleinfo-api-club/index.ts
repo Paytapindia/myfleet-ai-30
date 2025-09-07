@@ -148,10 +148,21 @@ Deno.serve(async (req) => {
       Deno.env.get('CLOUDFLARE_WORKER_PROXY_TOKEN') ||
       '';
 
-    const payload: Record<string, any> = { service, vehicleId };
+    const payload: Record<string, any> = { 
+      service, 
+      type: service, 
+      vehicleId, 
+      vehicleNumber: vehicleId,
+      rc_number: vehicleId,
+      registrationNumber: vehicleId
+    };
     if (service === 'challans') {
       payload.chassis = chassis;
+      payload.chassis_no = chassis;
+      payload.chassisNumber = chassis;
       payload.engine_no = engine_no;
+      payload.engineNo = engine_no;
+      payload.engineNumber = engine_no;
     }
 
     // Call Lambda

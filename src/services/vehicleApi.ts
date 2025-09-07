@@ -107,11 +107,12 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
       }
 
       if (!data.success) {
+        const msg = (data as any).error || (data as any).details || (data as any).data?.error || 'Verification failed';
         return {
           number: normalizedVehicleNumber,
           model: '',
           success: false,
-          error: data.error || 'Verification failed'
+          error: msg
         };
       }
 

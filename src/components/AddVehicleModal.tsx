@@ -35,7 +35,6 @@ const AddVehicleModal = () => {
         return;
       }
 
-
       // Check for duplicate vehicle number
       const isDuplicate = vehicles.some(vehicle => 
         vehicle.number.toLowerCase() === formData.number.toLowerCase()
@@ -60,16 +59,15 @@ const AddVehicleModal = () => {
         return;
       }
 
-      setVerificationStatus('verifying');
+      // Add vehicle immediately (fast operation)
       await addVehicle(formData);
       
-      setVerificationStatus('complete');
       toast({
         title: "Success",
-        description: "Vehicle added and RC verification completed successfully"
+        description: "Vehicle added! RC verification is running in the background."
       });
 
-      // Reset form and close modal
+      // Reset form and close modal immediately
       setFormData({ number: "" });
       setVerificationStatus('idle');
       setOpen(false);
@@ -81,9 +79,7 @@ const AddVehicleModal = () => {
       });
     } finally {
       setIsLoading(false);
-      if (verificationStatus !== 'complete') {
-        setVerificationStatus('idle');
-      }
+      setVerificationStatus('idle');
     }
   };
 

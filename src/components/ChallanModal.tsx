@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { AlertTriangle, CreditCard, MapPin, Calendar, IndianRupee, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertTriangle, CreditCard, MapPin, Calendar, IndianRupee, ExternalLink, Loader2, Clock, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { useVehicleReadiness } from '@/hooks/useVehicleReadiness';
 
 interface Challan {
   id: string;
@@ -39,6 +40,9 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
+  const [isWaitingForRC, setIsWaitingForRC] = useState(false);
+  
+  const { readiness, isLoading: readinessLoading, refresh: refreshReadiness } = useVehicleReadiness(vehicleNumber);
 
   // Function to fetch challans from API with retry logic
   const fetchChallans = async (vehicleNum: string, retryCount = 0, forceRefresh = false) => {
@@ -51,7 +55,18 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
     try {
       console.log(`Challan fetch attempt ${retryCount + 1} for vehicle: ${vehicleNum}`);
       
-      // First get vehicle details to fetch chassis and engine numbers
+      // Check vehicle readiness first
+      if (!readiness.isReady) {
+        if (!readiness.isRCVerified) {
+          setIsWaitingForRC(true);
+          throw new Error('RC verification required. Please wait for verification to complete.');
+        }
+        if (!readiness.hasChassis || !readiness.hasEngine) {
+          throw new Error(`Missing required data: ${readiness.missingFields.join(', ')}`);
+        }
+      }
+
+      // Get vehicle details to fetch chassis and engine numbers
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
@@ -69,7 +84,8 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
       }
 
       if (!vehicle.chassis_number || !vehicle.engine_number) {
-        throw new Error('Chassis and engine numbers not available. Please verify RC details first.');
+        setIsWaitingForRC(true);
+        throw new Error('Vehicle data incomplete. RC verification may still be in progress.');
       }
       
       // Get user session for auth header
@@ -99,12 +115,12 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         // Retry on timeout or network errors
         if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
           console.log(`Retrying challan fetch... (${retryCount + 1}/${maxRetries})`);
-          setError('Retrying... This may take up to 10 seconds');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+          setError('Retrying... This may take up to 60 seconds');
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s before retry
           return fetchChallans(vehicleNum, retryCount + 1, forceRefresh);
         }
         
-        throw new Error(error.message || 'Failed to fetch challans - This may take up to 10 seconds');
+        throw new Error(error.message || 'Failed to fetch challans - This may take up to 60 seconds');
       }
 
       console.log('Challans API response:', data);
@@ -170,24 +186,67 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         // Retry on timeout or network errors
         if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'AbortError') && retryCount < maxRetries) {
           console.log(`Retrying challan fetch after error... (${retryCount + 1}/${maxRetries})`);
-          setError('Retrying... This may take up to 10 seconds');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry  
+          setError('Retrying... This may take up to 60 seconds');
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s before retry  
           return fetchChallans(vehicleNum, retryCount + 1, forceRefresh);
         }
       
-      setError(error.message || 'Network timeout - Request takes up to 10 seconds');
+      setError(error.message || 'Network timeout - Request takes up to 60 seconds');
       setChallans([]);
-      toast.error(error.message || 'Network timeout - Request takes up to 10 seconds');
+      toast.error(error.message || 'Network timeout - Request takes up to 60 seconds');
     } finally {
       setIsLoading(false);
+      setIsWaitingForRC(false);
+    }
+  };
+
+  // Handle RC verification completion
+  const triggerRCVerification = async () => {
+    setIsWaitingForRC(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      const { data, error } = await supabase.functions.invoke('vehicle-info', {
+        body: { 
+          type: 'rc', 
+          vehicleId: vehicleNumber 
+        },
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'RC verification failed');
+      }
+
+      if (data?.success) {
+        toast.success('RC verification completed successfully');
+        await refreshReadiness();
+        // Auto-retry challan fetch after RC verification
+        if (readiness.isReady) {
+          await fetchChallans(vehicleNumber, 0, true);
+        }
+      }
+    } catch (error: any) {
+      console.error('RC verification error:', error);
+      toast.error(error.message || 'RC verification failed');
+    } finally {
+      setIsWaitingForRC(false);
     }
   };
 
   useEffect(() => {
     if (open && vehicleNumber) {
-      fetchChallans(vehicleNumber, 0, true); // Force refresh on initial open
+      // Check readiness first
+      if (readiness.isReady) {
+        fetchChallans(vehicleNumber, 0, true); // Force refresh on initial open
+      }
     }
-  }, [open, vehicleNumber]);
+  }, [open, vehicleNumber, readiness.isReady]);
 
   const handlePayChallan = async (challanId: string, amount: number) => {
     setPayingChallan(challanId);
@@ -302,6 +361,40 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
             </Card>
           )}
 
+          {/* Vehicle Readiness Check */}
+          {!readiness.isReady && !isLoading && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Vehicle Verification Required</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  {readiness.missingFields.join(', ')}
+                </p>
+                {!readiness.isRCVerified && (
+                  <Button 
+                    onClick={triggerRCVerification} 
+                    disabled={isWaitingForRC}
+                    variant="default"
+                  >
+                    {isWaitingForRC ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying RC...
+                      </div>
+                    ) : (
+                      'Verify RC Details'
+                    )}
+                  </Button>
+                )}
+                {readiness.isRCVerified && !readiness.hasRCData && (
+                  <p className="text-sm text-muted-foreground">
+                    RC verification incomplete. Please contact support.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Loading State */}
           {isLoading && (
             <div className="flex items-center justify-center py-8">
@@ -309,7 +402,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <p className="text-sm text-muted-foreground">
-                    {error && error.includes('Retrying') ? error : 'Loading challans... (This may take up to 10 seconds)'}
+                    {error && error.includes('Retrying') ? error : 'Loading challans... (This may take up to 60 seconds)'}
                   </p>
                 </div>
                 {!error && (

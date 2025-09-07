@@ -27,7 +27,9 @@ import FASTagDetailsModal from "./FASTagDetailsModal";
 import DriverModal from "./DriverModal";
 import { ServiceModal } from "./ServiceModal";
 import { ChallanModal } from "./ChallanModal";
+import { VehicleReadinessIndicator } from "./VehicleReadinessIndicator";
 import { useDrivers } from "@/contexts/DriverContext";
+import { useVehicleReadiness } from "@/hooks/useVehicleReadiness";
 
 interface VehicleCardProps {
   vehicle: {
@@ -68,9 +70,16 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   // Get insurance status
   const insuranceStatus = vehicle.documents.insurance.status;
   const isInsuranceActive = insuranceStatus === 'active';
+  
+  // Get vehicle readiness for challan fetch
+  const { readiness } = useVehicleReadiness(vehicle.number);
 
   const handleFastagClick = () => {
     setShowFastagModal(true);
+  };
+  
+  const handleChallanClick = () => {
+    setShowChallanModal(true);
   };
 
   return (
@@ -93,6 +102,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
                 {vehicle.challans} Fine{vehicle.challans > 1 ? 's' : ''}
               </Badge>
             )}
+            <VehicleReadinessIndicator vehicleNumber={vehicle.number} compact />
             <VehicleDetailsPopover vehicleNumber={vehicle.number} />
           </div>
         </div>
@@ -153,7 +163,7 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
             {/* Fines Count */}
             <div 
               className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20 cursor-pointer hover:bg-background/50 transition-all duration-300"
-              onClick={() => setShowChallanModal(true)}
+              onClick={handleChallanClick}
             >
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -161,13 +171,23 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">Fines</p>
-                  <p className={`text-xs font-medium ${vehicle.challans > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {vehicle.challans} Pending
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-xs font-medium ${vehicle.challans > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {vehicle.challans} Pending
+                    </p>
+                    {!readiness.isReady && (
+                      <VehicleReadinessIndicator vehicleNumber={vehicle.number} />
+                    )}
+                  </div>
                 </div>
               </div>
-              <Button size="sm" variant={vehicle.challans > 0 ? "destructive" : "secondary"} className="rounded-xl">
-                {vehicle.challans > 0 ? 'Pay Now' : 'View'}
+              <Button 
+                size="sm" 
+                variant={readiness.isReady ? (vehicle.challans > 0 ? "destructive" : "secondary") : "outline"} 
+                className="rounded-xl"
+                disabled={!readiness.isReady}
+              >
+                {readiness.isReady ? (vehicle.challans > 0 ? 'Pay Now' : 'View') : 'Not Ready'}
               </Button>
             </div>
 

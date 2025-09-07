@@ -739,13 +739,95 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     };
     console.log('Forwarding to Lambda:', payload);
     // Increase timeout for challans (can be slower upstream)
-    const res = await fetchLambda(lambdaUrl, payload, 30000);
+    const startMs = Date.now();
+    let res = await fetchLambda(lambdaUrl, payload, 45000);
+    
+    // Single retry on timeout/network errors after 30s fallback check
+    if (!res.parsed || res.status === 0 || res.status === 502) {
+      const elapsed1 = Date.now() - startMs;
+      console.log(`[Challans] First attempt elapsed ${elapsed1}ms; checking cache before retry...`);
+      
+      // Check for any cached data as fallback before retry
+      const { data: fallbackData } = await supabase
+        .from('challan_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (fallbackData && fallbackData.verification_data && elapsed1 > 30000) {
+        console.log('[Challans] Using cached fallback after 30s timeout');
+        // Update vehicle with cached data
+        await supabase
+          .from('vehicles')
+          .update({
+            challans_count: Array.isArray(fallbackData.verification_data.challans) 
+              ? fallbackData.verification_data.challans.length 
+              : 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('number', vehicleNumber);
+          
+        return new Response(JSON.stringify({
+          success: true,
+          data: fallbackData.verification_data,
+          cached: true,
+          verifiedAt: fallbackData.created_at,
+          warning: 'Live service timeout, showing cached data'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Quick retry if no cached data or under 30s
+      if (elapsed1 < 30000) {
+        console.log('[Challans] Quick retry after network error...');
+        await new Promise((r) => setTimeout(r, 2000));
+        res = await fetchLambda(lambdaUrl, payload, 15000);
+      }
+    }
+    
+    const totalElapsed = Date.now() - startMs;
+    console.log(`[Challans] Total elapsed: ${totalElapsed}ms`);
     console.log('[Lambda] Raw response:', res.rawText);
     if (!res.parsed) {
+      // Final fallback to any historical data
+      const { data: emergencyFallback } = await supabase
+        .from('challan_verifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('vehicle_number', vehicleNumber)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+        
+      if (emergencyFallback && emergencyFallback.verification_data) {
+        console.log('[Challans] Using emergency fallback data');
+        return new Response(JSON.stringify({
+          success: true,
+          data: emergencyFallback.verification_data,
+          cached: true,
+          verifiedAt: emergencyFallback.created_at,
+          warning: 'Service unavailable, showing last known data'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Service temporarily unavailable', 
+          details: 'Unable to fetch live data and no cached data available',
+          retryAfter: 300 // 5 minutes
+        }),
         {
-          status: res.status || 502,
+          status: 503,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );

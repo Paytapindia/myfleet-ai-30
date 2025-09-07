@@ -174,25 +174,34 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       .single();
 
     if (existingVehicle && existingVehicle.rc_verified_at) {
-      console.log('Returning cached RC data');
-      const cachedData = {
-        number: existingVehicle.number,
-        model: existingVehicle.model || 'Not specified',
-        make: existingVehicle.make || undefined,
-        year: existingVehicle.year ? String(existingVehicle.year) : undefined,
-        fuelType: existingVehicle.fuel_type || undefined,
-        registrationDate: existingVehicle.registration_date || undefined,
-        ownerName: existingVehicle.owner_name || undefined,
-        chassisNumber: existingVehicle.chassis_number || undefined,
-        engineNumber: existingVehicle.engine_number || undefined,
-        registrationAuthority: existingVehicle.registration_authority || undefined,
-        puccExpiry: existingVehicle.pollution_expiry || undefined,
-        insuranceExpiry: existingVehicle.insurance_expiry || undefined,
-      };
-      return new Response(
-        JSON.stringify({ success: true, data: cachedData, cached: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('Found existing RC data for vehicle:', vehicleNumber);
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          // Standardized field names that match frontend expectations
+          number: existingVehicle.number,
+          model: existingVehicle.model || 'Not specified',
+          make: existingVehicle.make || null,
+          year: existingVehicle.year || null,
+          fuelType: existingVehicle.fuel_type || null,
+          registrationDate: existingVehicle.registration_date,
+          ownerName: existingVehicle.owner_name || null,
+          chassisNumber: existingVehicle.chassis_number || null,
+          engineNumber: existingVehicle.engine_number || null,
+          registrationAuthority: existingVehicle.registration_authority || null,
+          puccExpiry: existingVehicle.pollution_expiry,
+          fitnessExpiry: null, // Not stored in current schema
+          insuranceExpiry: existingVehicle.insurance_expiry,
+          isFinanced: existingVehicle.is_financed || false,
+          financer: existingVehicle.financer || null,
+          permanentAddress: existingVehicle.permanent_address || null
+        },
+        cached: true,
+        source: 'database'
+      }), {
+        headers: corsHeaders,
+        status: 200
+      });
     }
 
     // Call Lambda for fresh data
@@ -270,68 +279,101 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       });
     }
 
-    // Update/create vehicle record with RC data
+    // Update/create vehicle record with RC data - Enhanced with logging
     const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+    console.log('RC Lambda raw response data:', JSON.stringify(r, null, 2));
 
     const rcData = {
       number: r.vehicle_number ?? r.registrationNumber ?? vehicleNumber,
       model: r.model ?? r.vehicleModel ?? 'Not specified',
-      make: r.make ?? r.maker ?? undefined,
-      year: (r.mfgYear ?? r.manufacturing_year ?? r.year) ? String(r.mfgYear ?? r.manufacturing_year ?? r.year) : undefined,
-      fuelType: r.fuel_type ?? r.fuelType ?? undefined,
-      registrationDate: r.registration_date ?? r.registrationDate ?? undefined,
-      ownerName: r.owner_name ?? r.ownerName ?? undefined,
-      chassisNumber: r.chassis_no ?? r.chassisNumber ?? r.chassis ?? undefined,
-      engineNumber: r.engine_no ?? r.engineNumber ?? r.engine ?? undefined,
-      registrationAuthority: r.registration_authority ?? r.registrationAuthority ?? undefined,
-      puccExpiry: r.pollution_expiry ?? r.puccExpiry ?? undefined,
-      insuranceExpiry: r.insurance_expiry ?? r.insuranceExpiry ?? undefined,
+      make: r.make ?? r.maker ?? null,
+      year: (r.mfgYear ?? r.manufacturing_year ?? r.year) ? (r.mfgYear ?? r.manufacturing_year ?? r.year) : null,
+      fuelType: r.fuel_type ?? r.fuelType ?? null,
+      registrationDate: r.registration_date ?? r.registrationDate ?? null,
+      ownerName: r.owner_name ?? r.ownerName ?? null,
+      chassisNumber: r.chassis_no ?? r.chassisNumber ?? r.chassis ?? null,
+      engineNumber: r.engine_no ?? r.engineNumber ?? r.engine ?? null,
+      registrationAuthority: r.registration_authority ?? r.registrationAuthority ?? null,
+      puccExpiry: r.pollution_expiry ?? r.puccExpiry ?? null,
+      fitnessExpiry: r.fitness_expiry ?? r.fitnessExpiry ?? null,
+      insuranceExpiry: r.insurance_expiry ?? r.insuranceExpiry ?? null,
+      isFinanced: r.is_financed ?? r.isFinanced ?? false,
+      financer: r.financer ?? null,
+      permanentAddress: r.permanent_address ?? r.permanentAddress ?? null
     };
+
+    console.log('Parsed RC data for frontend:', JSON.stringify(rcData, null, 2));
 
     const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
       model: rcData.model || 'Not specified',
       make: rcData.make,
-      year: rcData.year ? parseInt(rcData.year) : null,
+      year: rcData.year,
       fuel_type: rcData.fuelType,
       registration_date: rcData.registrationDate,
       owner_name: rcData.ownerName,
       chassis_number: rcData.chassisNumber,
       engine_number: rcData.engineNumber,
       registration_authority: rcData.registrationAuthority,
-      insurance_expiry: rcData.insuranceExpiry || null,
-      pollution_expiry: rcData.puccExpiry || null,
+      insurance_expiry: rcData.insuranceExpiry,
+      pollution_expiry: rcData.puccExpiry,
       registration_expiry: r.registration_expiry ?? r.registration_valid_upto ?? null,
+      is_financed: rcData.isFinanced,
+      financer: rcData.financer,
+      permanent_address: rcData.permanentAddress,
       rc_verified_at: new Date().toISOString(),
       rc_verification_status: 'verified',
       last_rc_refresh: new Date().toISOString(),
+      rc_data_complete: true,
       updated_at: new Date().toISOString()
     };
 
+    console.log('Vehicle data to save to database:', JSON.stringify(vehicleData, null, 2));
+
+    // Save to database with error handling
+    let saveResult;
     if (existingVehicle) {
-      await supabase
+      saveResult = await supabase
         .from('vehicles')
         .update(vehicleData)
-        .eq('id', existingVehicle.id);
+        .eq('id', existingVehicle.id)
+        .select();
     } else {
-      await supabase
+      saveResult = await supabase
         .from('vehicles')
-        .insert({ ...vehicleData, status: 'active' });
+        .insert({ ...vehicleData, status: 'active' })
+        .select();
     }
 
-    // Log verification
+    if (saveResult.error) {
+      console.error('CRITICAL: Failed to save RC data to database:', saveResult.error);
+      console.error('Vehicle data that failed to save:', JSON.stringify(vehicleData, null, 2));
+    } else {
+      console.log('SUCCESS: RC data saved to database:', saveResult.data);
+    }
+
+    // Log verification with enhanced data
     await supabase
       .from('rc_verifications')
       .insert({
         user_id: userId,
         vehicle_number: vehicleNumber,
         status: 'completed',
-        verification_data: rcData
+        verification_data: rcData,
+        request_id: r.request_id || null
       });
 
+    console.log('Final RC response being sent to frontend:', JSON.stringify(rcData, null, 2));
+
     return new Response(
-      JSON.stringify({ success: true, data: rcData, cached: false, verifiedAt: new Date().toISOString() }),
+      JSON.stringify({ 
+        success: true, 
+        data: rcData, 
+        cached: false, 
+        source: 'api',
+        verifiedAt: new Date().toISOString() 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

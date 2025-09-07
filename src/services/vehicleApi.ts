@@ -79,24 +79,29 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     // Debug logging
     console.log('Raw edge function response:', data);
     
-    // Transform the API response to our interface
-    const vehicleData = data.data || data; // Handle both data.data and direct data structures
-    console.log('Transformed vehicle data:', vehicleData);
+    // Use the standardized data structure from edge function
+    const vehicleData = data.data;
+    console.log('Vehicle data from edge function:', vehicleData);
+    
+    // Validate that we have the expected data structure
+    if (!vehicleData) {
+      throw new Error('No vehicle data received from server');
+    }
     
     return {
-      number: vehicleData.license_plate || vehicleData.number || vehicleNumber,
-      model: vehicleData.vehicle_model || vehicleData.model || '',
-      make: vehicleData.make || vehicleData.vehicle_make,
-      year: vehicleData.year || vehicleData.year_of_manufacture,
-      fuelType: vehicleData.fuel_type || vehicleData.fuelType,
-      registrationDate: vehicleData.registration_date || vehicleData.registrationDate,
-      ownerName: vehicleData.owner_name || vehicleData.ownerName,
-      chassisNumber: vehicleData.chassis_no || vehicleData.chassisNumber,
-      engineNumber: vehicleData.engine_no || vehicleData.engineNumber,
-      registrationAuthority: vehicleData.registration_authority || vehicleData.registrationAuthority,
-      fitnessExpiry: vehicleData.fitness_valid_upto || vehicleData.fitnessExpiry,
-      puccExpiry: vehicleData.pucc_valid_upto || vehicleData.puccExpiry,
-      insuranceExpiry: vehicleData.insurance_valid_upto || vehicleData.insuranceExpiry,
+      number: vehicleData.number || vehicleNumber,
+      model: vehicleData.model || '',
+      make: vehicleData.make || null,
+      year: vehicleData.year || null,
+      fuelType: vehicleData.fuelType || null,
+      registrationDate: vehicleData.registrationDate || null,
+      ownerName: vehicleData.ownerName || null,
+      chassisNumber: vehicleData.chassisNumber || null,
+      engineNumber: vehicleData.engineNumber || null,
+      registrationAuthority: vehicleData.registrationAuthority || null,
+      fitnessExpiry: vehicleData.fitnessExpiry || null,
+      puccExpiry: vehicleData.puccExpiry || null,
+      insuranceExpiry: vehicleData.insuranceExpiry || null,
       success: true,
       cached: data.cached || false
     };

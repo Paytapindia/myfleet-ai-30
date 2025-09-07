@@ -94,6 +94,13 @@ const handleRetry = async () => {
                 </div>
               )}
               
+              {/* Show data completeness indicator */}
+              {(!vehicleDetails.chassisNumber || !vehicleDetails.engineNumber) && (
+                <div className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200">
+                  ⚠️ Some vehicle details are incomplete
+                </div>
+              )}
+              
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>

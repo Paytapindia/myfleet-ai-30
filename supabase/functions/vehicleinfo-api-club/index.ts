@@ -120,13 +120,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve Lambda URL and proxy token
-    const lambdaUrl =
-      Deno.env.get('AWS_LAMBDA_RC_URL') ||
-      Deno.env.get('LAMBDA_URL') ||
-      Deno.env.get('AWS_GATEWAY_URL') ||
-      Deno.env.get('AWS_RC_API_URL') ||
-      Deno.env.get('AWS_FASTAG_API_GATEWAY_URL');
+    // Resolve Lambda URL per service with clear precedence
+    let lambdaUrl = '';
+    if (service === 'rc') {
+      lambdaUrl =
+        Deno.env.get('AWS_RC_API_URL') ||
+        Deno.env.get('AWS_LAMBDA_RC_URL') ||
+        Deno.env.get('AWS_API_GATEWAY_URL') ||
+        Deno.env.get('AWS_GATEWAY_URL') ||
+        Deno.env.get('LAMBDA_URL') || '';
+    } else if (service === 'fastag') {
+      lambdaUrl =
+        Deno.env.get('AWS_FASTAG_API_GATEWAY_URL') ||
+        Deno.env.get('AWS_API_GATEWAY_URL') ||
+        Deno.env.get('AWS_GATEWAY_URL') ||
+        Deno.env.get('LAMBDA_URL') || '';
+    } else if (service === 'challans') {
+      lambdaUrl =
+        Deno.env.get('AWS_CHALLANS_API_GATEWAY_URL') ||
+        Deno.env.get('AWS_API_GATEWAY_URL') ||
+        Deno.env.get('AWS_GATEWAY_URL') ||
+        Deno.env.get('LAMBDA_URL') || '';
+    }
+
 
     if (!lambdaUrl) {
       return jsonResponse({ success: false, error: 'Lambda URL not configured' });
@@ -267,7 +283,7 @@ Deno.serve(async (req) => {
         .eq('number', vehicleId);
     }
 
-    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString() });
+    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl });
   } catch (e: any) {
     return jsonResponse({ success: false, error: 'Unexpected error', details: e?.message || String(e) });
   }

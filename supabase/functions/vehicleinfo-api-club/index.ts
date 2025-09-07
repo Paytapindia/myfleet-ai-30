@@ -120,41 +120,43 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve Lambda URL per service with clear precedence
+    // Resolve Lambda URL with global LAMBDA_URL priority, then per-service fallbacks
     let lambdaUrl = '';
-    if (service === 'rc') {
-      lambdaUrl =
-        Deno.env.get('AWS_RC_API_URL') ||
-        Deno.env.get('AWS_LAMBDA_RC_URL') ||
-        Deno.env.get('AWS_API_GATEWAY_URL') ||
-        Deno.env.get('AWS_GATEWAY_URL') ||
-        Deno.env.get('LAMBDA_URL') || '';
-    } else if (service === 'fastag') {
-      lambdaUrl =
-        Deno.env.get('AWS_FASTAG_API_GATEWAY_URL') ||
-        Deno.env.get('AWS_API_GATEWAY_URL') ||
-        Deno.env.get('AWS_GATEWAY_URL') ||
-        Deno.env.get('LAMBDA_URL') || '';
-    } else if (service === 'challans') {
-      lambdaUrl =
-        Deno.env.get('AWS_CHALLANS_API_GATEWAY_URL') ||
-        Deno.env.get('AWS_API_GATEWAY_URL') ||
-        Deno.env.get('AWS_GATEWAY_URL') ||
-        Deno.env.get('LAMBDA_URL') || '';
+    let envKeyUsed = '';
+
+    const pick = (key: string) => {
+      const val = (Deno.env.get(key) || '').trim();
+      if (val) {
+        lambdaUrl = val;
+        envKeyUsed = key;
+        return true;
+      }
+      return false;
+    };
+
+    // 1) Always prefer LAMBDA_URL if present
+    if (!pick('LAMBDA_URL')) {
+      // 2) Service-specific fallbacks
+      if (service === 'rc') {
+        pick('AWS_RC_API_URL') || pick('AWS_LAMBDA_RC_URL') || pick('AWS_API_GATEWAY_URL') || pick('AWS_GATEWAY_URL');
+      } else if (service === 'fastag') {
+        pick('AWS_FASTAG_API_GATEWAY_URL') || pick('AWS_API_GATEWAY_URL') || pick('AWS_GATEWAY_URL');
+      } else if (service === 'challans') {
+        pick('AWS_CHALLANS_API_GATEWAY_URL') || pick('AWS_API_GATEWAY_URL') || pick('AWS_GATEWAY_URL');
+      }
     }
-
-
     if (!lambdaUrl) {
       return jsonResponse({ success: false, error: 'Lambda URL not configured' });
     }
 
-    // Validate URL format - ensure it's HTTP/HTTPS, not ARN
+    // Validate URL format - ensure it's HTTP/HTTPS, not ARN or pasted code
     if (!lambdaUrl.startsWith('http://') && !lambdaUrl.startsWith('https://')) {
-      console.error('Invalid Lambda URL format:', lambdaUrl);
-      return jsonResponse({ 
-        success: false, 
-        error: 'Invalid Lambda URL configuration', 
-        details: `URL must start with http:// or https://, got: ${lambdaUrl.substring(0, 50)}...`
+      console.error('[vehicleinfo-api-club] Invalid Lambda URL format from', envKeyUsed || 'unknown', ':', lambdaUrl);
+      return jsonResponse({
+        success: false,
+        error: 'Invalid Lambda URL configuration',
+        details: `URL must start with http:// or https://, got: ${lambdaUrl.substring(0, 80)}...`,
+        envKeyUsed,
       });
     }
 
@@ -163,7 +165,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SHARED_PROXY_TOKEN') ||
       Deno.env.get('CLOUDFLARE_WORKER_PROXY_TOKEN') ||
       '';
-
+    const xApiKey =
+      Deno.env.get('AWS_LAMBDA_API_KEY') ||
+      Deno.env.get('AWS_RC_API_KEY') ||
+      '';
     const payload: Record<string, any> = { 
       service, 
       type: service, 
@@ -183,7 +188,7 @@ Deno.serve(async (req) => {
 
     // Call Lambda
     const timeoutMs = service === 'challans' ? 65000 : 45000;
-    console.log(`[vehicleinfo-api-club] Calling Lambda at: ${lambdaUrl} with payload:`, payload);
+    console.log(`[vehicleinfo-api-club] Calling Lambda at: ${lambdaUrl} (env: ${envKeyUsed || 'unknown'}) with payload:`, payload);
     
     let upstream: Response;
     try {
@@ -192,6 +197,7 @@ Deno.serve(async (req) => {
         headers: {
           'Content-Type': 'application/json',
           ...(proxyToken ? { 'x-proxy-token': proxyToken } : {}),
+          ...(xApiKey ? { 'x-api-key': xApiKey } : {}),
         },
         body: JSON.stringify(payload),
       }, timeoutMs);
@@ -283,7 +289,7 @@ Deno.serve(async (req) => {
         .eq('number', vehicleId);
     }
 
-    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl });
+    return jsonResponse({ success: ok, data: parsed?.data ?? parsed, cached: parsed?.cached ?? false, verifiedAt: new Date().toISOString(), upstreamUrl: lambdaUrl, envKeyUsed });
   } catch (e: any) {
     return jsonResponse({ success: false, error: 'Unexpected error', details: e?.message || String(e) });
   }

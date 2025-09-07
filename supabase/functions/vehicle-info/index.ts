@@ -55,13 +55,18 @@ serve(async (req: Request) => {
       });
     }
     console.log('Incoming body keys:', Object.keys(rawBody));
+    console.log('Incoming body values:', JSON.stringify(rawBody, null, 2));
     const { type, vehicleNumber, vehicleId, chassis, engine_no } = rawBody;
+    console.log('Parsed values - type:', type, 'vehicleNumber:', vehicleNumber, 'vehicleId:', vehicleId);
 
     // Validate request
     if (!type || !(vehicleNumber || vehicleId)) {
+      console.error('Validation failed - type:', type, 'vehicleNumber:', vehicleNumber, 'vehicleId:', vehicleId);
+      console.error('Full request body for debugging:', JSON.stringify(rawBody, null, 2));
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Missing required params: type, vehicleId' 
+        error: `Missing required params: type (${type}), vehicleId (${vehicleId || vehicleNumber})`,
+        received: { type, vehicleNumber, vehicleId, allKeys: Object.keys(rawBody || {}) }
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,7 +84,8 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`Processing ${type} request for vehicle: ${vehicleNumber || vehicleId}`);
+    console.log(`Authenticated user: ${user.id}`);
+    console.log(`Processing ${type} for vehicle ${vehicleNumber || vehicleId}`);
 
     // Handle service-specific logic
     switch (type) {

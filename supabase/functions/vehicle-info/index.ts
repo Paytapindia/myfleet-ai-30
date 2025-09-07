@@ -163,6 +163,42 @@ function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
   return false;
 }
 
+// Helper to safely map date strings to Postgres DATE (YYYY-MM-DD) or null
+function toDateOrNull(input: any): string | null {
+  if (input === null || input === undefined) return null;
+  const s = String(input).trim();
+  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') return null;
+  const yyyy_mm_dd = /^\d{4}-\d{2}-\d{2}$/;
+  if (yyyy_mm_dd.test(s)) return s;
+  const dd_mm_yyyy = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const mm_dd_yyyy_dash = /^(\d{2})-(\d{2})-(\d{4})$/;
+  const mm_yyyy_slash = /^(\d{2})\/(\d{4})$/;
+  const yyyy_mm = /^(\d{4})-(\d{2})$/;
+  let y: string, m: string, d: string;
+  let match: RegExpMatchArray | null;
+  if ((match = s.match(dd_mm_yyyy))) {
+    d = match[1]; m = match[2]; y = match[3];
+    return `${y}-${m}-${d}`;
+  }
+  if ((match = s.match(mm_dd_yyyy_dash))) {
+    m = match[1]; d = match[2]; y = match[3];
+    return `${y}-${m}-${d}`;
+  }
+  if ((match = s.match(mm_yyyy_slash))) {
+    m = match[1]; y = match[2];
+    return `${y}-${m}-01`;
+  }
+  if ((match = s.match(yyyy_mm))) {
+    y = match[1]; m = match[2];
+    return `${y}-${m}-01`;
+  }
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    return dt.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
 async function handleRCVerification(supabase: any, userId: string, vehicleNumber: string) {
   try {
     // Check for cached data
@@ -306,21 +342,23 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
 
     console.log('Parsed RC data for frontend:', JSON.stringify(rcData, null, 2));
 
-    const vehicleData = {
+const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
       model: rcData.model,
       make: rcData.make,
       year: rcData.year,
       fuel_type: rcData.fuelType,
-      registration_date: rcData.registrationDate,
+      registration_date: toDateOrNull(rcData.registrationDate),
       owner_name: rcData.ownerName,
       chassis_number: rcData.chassisNumber,
       engine_number: rcData.engineNumber,
       registration_authority: rcData.registrationAuthority,
-      insurance_expiry: rcData.insuranceExpiry,
-      pollution_expiry: rcData.puccExpiry,
-      registration_expiry: r.registration_expiry ?? r.registration_valid_upto ?? null,
+      insurance_expiry: toDateOrNull(rcData.insuranceExpiry),
+      pollution_expiry: toDateOrNull(rcData.puccExpiry),
+      registration_expiry: toDateOrNull(r.registration_expiry ?? r.registration_valid_upto ?? null),
+      fit_up_to: toDateOrNull(rcData.fitnessExpiry),
+      manufacturing_date: toDateOrNull(r.manufacturing_date_formatted ?? r.manufacturing_date ?? null),
       is_financed: rcData.isFinanced,
       financer: rcData.financer,
       permanent_address: rcData.permanentAddress,
@@ -347,23 +385,36 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         .select();
     }
 
-    if (saveResult.error) {
+if (saveResult.error) {
       console.error('CRITICAL: Failed to save RC data to database:', saveResult.error);
       console.error('Vehicle data that failed to save:', JSON.stringify(vehicleData, null, 2));
     } else {
       console.log('SUCCESS: RC data saved to database:', saveResult.data);
     }
 
-    // Log verification with enhanced data
-    await supabase
-      .from('rc_verifications')
-      .insert({
-        user_id: userId,
-        vehicle_number: vehicleNumber,
-        status: 'completed',
-        verification_data: rcData,
-        request_id: r.request_id || null
-      });
+// Log verification with enhanced data (respect DB save result)
+    if (saveResult.error) {
+      await supabase
+        .from('rc_verifications')
+        .insert({
+          user_id: userId,
+          vehicle_number: vehicleNumber,
+          status: 'failed',
+          error_message: `DB save error: ${saveResult.error.message || 'unknown'}`,
+          verification_data: rcData,
+          request_id: r.request_id || null
+        });
+    } else {
+      await supabase
+        .from('rc_verifications')
+        .insert({
+          user_id: userId,
+          vehicle_number: vehicleNumber,
+          status: 'completed',
+          verification_data: rcData,
+          request_id: r.request_id || null
+        });
+    }
 
     console.log('Final RC response being sent to frontend:', JSON.stringify(rcData, null, 2));
 

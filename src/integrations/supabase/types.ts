@@ -917,6 +917,7 @@ export type Database = {
           id: string
           insurance_expiry: string | null
           is_financed: boolean | null
+          last_rc_refresh: string | null
           last_service_date: string | null
           make: string | null
           model: string | null
@@ -927,6 +928,7 @@ export type Database = {
           pay_tap_balance: number | null
           permanent_address: string | null
           pollution_expiry: string | null
+          rc_data_complete: boolean | null
           rc_verification_status: string | null
           rc_verified_at: string | null
           registration_authority: string | null
@@ -954,6 +956,7 @@ export type Database = {
           id?: string
           insurance_expiry?: string | null
           is_financed?: boolean | null
+          last_rc_refresh?: string | null
           last_service_date?: string | null
           make?: string | null
           model?: string | null
@@ -964,6 +967,7 @@ export type Database = {
           pay_tap_balance?: number | null
           permanent_address?: string | null
           pollution_expiry?: string | null
+          rc_data_complete?: boolean | null
           rc_verification_status?: string | null
           rc_verified_at?: string | null
           registration_authority?: string | null
@@ -991,6 +995,7 @@ export type Database = {
           id?: string
           insurance_expiry?: string | null
           is_financed?: boolean | null
+          last_rc_refresh?: string | null
           last_service_date?: string | null
           make?: string | null
           model?: string | null
@@ -1001,6 +1006,7 @@ export type Database = {
           pay_tap_balance?: number | null
           permanent_address?: string | null
           pollution_expiry?: string | null
+          rc_data_complete?: boolean | null
           rc_verification_status?: string | null
           rc_verified_at?: string | null
           registration_authority?: string | null
@@ -1089,6 +1095,10 @@ export type Database = {
           driver_earnings: number
           total_fare: number
         }[]
+      }
+      check_vehicle_readiness: {
+        Args: { p_user_id: string; p_vehicle_number: string }
+        Returns: Json
       }
       has_role: {
         Args: {

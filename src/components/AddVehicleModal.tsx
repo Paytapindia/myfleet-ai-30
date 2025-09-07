@@ -14,6 +14,7 @@ const AddVehicleModal = () => {
     number: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'adding' | 'verifying' | 'complete'>('idle');
   
   const { addVehicle, vehicles } = useVehicles();
   const { toast } = useToast();
@@ -21,6 +22,7 @@ const AddVehicleModal = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setVerificationStatus('adding');
 
     try {
       // Validation
@@ -58,15 +60,18 @@ const AddVehicleModal = () => {
         return;
       }
 
+      setVerificationStatus('verifying');
       await addVehicle(formData);
       
+      setVerificationStatus('complete');
       toast({
         title: "Success",
-        description: "Vehicle added and details verified successfully"
+        description: "Vehicle added and RC verification completed successfully"
       });
 
       // Reset form and close modal
       setFormData({ number: "" });
+      setVerificationStatus('idle');
       setOpen(false);
     } catch (error) {
       toast({
@@ -76,6 +81,9 @@ const AddVehicleModal = () => {
       });
     } finally {
       setIsLoading(false);
+      if (verificationStatus !== 'complete') {
+        setVerificationStatus('idle');
+      }
     }
   };
 
@@ -116,7 +124,10 @@ const AddVehicleModal = () => {
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading ? "Fetching Details..." : "Add Vehicle"}
+              {verificationStatus === 'adding' && "Adding Vehicle..."}
+              {verificationStatus === 'verifying' && "Verifying RC Details..."}
+              {verificationStatus === 'complete' && "Completed!"}
+              {verificationStatus === 'idle' && "Add Vehicle"}
             </Button>
           </div>
         </form>

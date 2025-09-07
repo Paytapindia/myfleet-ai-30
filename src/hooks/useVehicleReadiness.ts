@@ -45,7 +45,7 @@ export const useVehicleReadiness = (vehicleNumber: string) => {
 
       const { data: vehicle, error } = await supabase
         .from('vehicles')
-        .select('chassis_number, engine_number, rc_verified_at, rc_verification_status, model')
+        .select('chassis_number, engine_number, rc_verified_at, rc_verification_status, rc_data_complete, last_rc_refresh')
         .eq('user_id', user.id)
         .eq('number', vehicleNumber)
         .single();

@@ -166,7 +166,17 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
           console.error('RC verification failed:', rcError);
           // Don't throw error here - vehicle was already added successfully
         } else if (rcData?.success) {
-          console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
+        console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
+        
+        // Update vehicle RC verification status in database
+        await supabase
+          .from('vehicles')
+          .update({
+            last_rc_refresh: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('number', vehicleData.number);
         }
       } catch (rcError) {
         console.error('RC verification error:', rcError);

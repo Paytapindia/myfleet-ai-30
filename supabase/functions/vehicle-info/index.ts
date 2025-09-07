@@ -305,6 +305,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       registration_expiry: r.registration_expiry ?? r.registration_valid_upto ?? null,
       rc_verified_at: new Date().toISOString(),
       rc_verification_status: 'verified',
+      last_rc_refresh: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 

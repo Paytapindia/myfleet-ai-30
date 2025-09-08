@@ -132,31 +132,32 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
     }
 
     // Handle both flat and nested response structures
-    const apiVehicleData = data.data || data;
+    // Check for nested structure like data.response.*
+    const apiVehicleData = data.data?.response || data.data || data;
     console.log('🚗 [fetchVehicleDetails] Processed vehicle data:', apiVehicleData);
     
     // Step 3: Update the vehicles table with fresh data
     console.log('🚗 [fetchVehicleDetails] Updating vehicles table with fresh data...');
     
     const updateData = {
-      model: apiVehicleData.model || '',
-      make: apiVehicleData.make,
-      brand_name: apiVehicleData.make,
-      brand_model: apiVehicleData.model,
+      model: apiVehicleData.model || apiVehicleData.brand_model || '',
+      make: apiVehicleData.make || apiVehicleData.brand_name,
+      brand_name: apiVehicleData.brand_name || apiVehicleData.make,
+      brand_model: apiVehicleData.brand_model || apiVehicleData.model,
       year: apiVehicleData.year ? parseInt(apiVehicleData.year) : null,
-      fuel_type: apiVehicleData.fuelType,
-      registration_date: apiVehicleData.registrationDate,
-      owner_name: apiVehicleData.ownerName,
-      chassis_number: apiVehicleData.chassisNumber,
-      engine_number: apiVehicleData.engineNumber,
-      registration_authority: apiVehicleData.registrationAuthority,
-      fit_up_to: apiVehicleData.fitnessExpiry,
-      pollution_expiry: apiVehicleData.puccExpiry,
-      insurance_expiry: apiVehicleData.insuranceExpiry,
+      fuel_type: apiVehicleData.fuelType || apiVehicleData.fuel_type,
+      registration_date: apiVehicleData.registrationDate || apiVehicleData.registration_date,
+      owner_name: apiVehicleData.ownerName || apiVehicleData.owner_name,
+      chassis_number: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
+      engine_number: apiVehicleData.engineNumber || apiVehicleData.engine_number,
+      registration_authority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
+      fit_up_to: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
+      pollution_expiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
+      insurance_expiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
       rc_verified_at: new Date().toISOString(),
       last_rc_refresh: new Date().toISOString(),
-      rc_verification_status: 'verified',
-      rc_data_complete: !!(apiVehicleData.chassisNumber && apiVehicleData.engineNumber)
+      rc_verification_status: 'verified'
+      // Removed rc_data_complete as it's a generated column
     };
 
     const { error: updateError } = await supabase
@@ -171,25 +172,79 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
 
     if (updateError) {
       console.error('🚗 [fetchVehicleDetails] Failed to update vehicles table:', updateError);
-    } else {
-      console.log('🚗 [fetchVehicleDetails] Successfully updated vehicles table');
+      
+      // Fallback: return API data if DB update fails
+      return {
+        number: apiVehicleData.number || vehicleNumber,
+        model: apiVehicleData.model || apiVehicleData.brand_model || '',
+        make: apiVehicleData.make || apiVehicleData.brand_name,
+        year: apiVehicleData.year,
+        fuelType: apiVehicleData.fuelType || apiVehicleData.fuel_type,
+        registrationDate: apiVehicleData.registrationDate || apiVehicleData.registration_date,
+        ownerName: apiVehicleData.ownerName || apiVehicleData.owner_name,
+        chassisNumber: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
+        engineNumber: apiVehicleData.engineNumber || apiVehicleData.engine_number,
+        registrationAuthority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
+        fitnessExpiry: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
+        puccExpiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
+        insuranceExpiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
+        success: true,
+        cached: false
+      };
     }
+
+    console.log('🚗 [fetchVehicleDetails] Successfully updated vehicles table');
     
-    // Return the fresh data
+    // Step 4: Query the database again to get the freshly stored data
+    console.log('🚗 [fetchVehicleDetails] Querying database for freshly stored data...');
+    
+    const { data: freshVehicleData, error: queryError } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('number', vehicleNumber)
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (queryError || !freshVehicleData) {
+      console.error('🚗 [fetchVehicleDetails] Failed to query freshly stored data:', queryError);
+      
+      // Fallback: return API data if query fails
+      return {
+        number: apiVehicleData.number || vehicleNumber,
+        model: apiVehicleData.model || apiVehicleData.brand_model || '',
+        make: apiVehicleData.make || apiVehicleData.brand_name,
+        year: apiVehicleData.year,
+        fuelType: apiVehicleData.fuelType || apiVehicleData.fuel_type,
+        registrationDate: apiVehicleData.registrationDate || apiVehicleData.registration_date,
+        ownerName: apiVehicleData.ownerName || apiVehicleData.owner_name,
+        chassisNumber: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
+        engineNumber: apiVehicleData.engineNumber || apiVehicleData.engine_number,
+        registrationAuthority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
+        fitnessExpiry: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
+        puccExpiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
+        insuranceExpiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
+        success: true,
+        cached: false
+      };
+    }
+
+    console.log('🚗 [fetchVehicleDetails] Returning freshly stored database data');
+    
+    // Return the freshly stored database data for consistency
     return {
-      number: apiVehicleData.number || vehicleNumber,
-      model: apiVehicleData.model || '',
-      make: apiVehicleData.make,
-      year: apiVehicleData.year,
-      fuelType: apiVehicleData.fuelType,
-      registrationDate: apiVehicleData.registrationDate,
-      ownerName: apiVehicleData.ownerName,
-      chassisNumber: apiVehicleData.chassisNumber,
-      engineNumber: apiVehicleData.engineNumber,
-      registrationAuthority: apiVehicleData.registrationAuthority,
-      fitnessExpiry: apiVehicleData.fitnessExpiry,
-      puccExpiry: apiVehicleData.puccExpiry,
-      insuranceExpiry: apiVehicleData.insuranceExpiry,
+      number: freshVehicleData.number,
+      model: freshVehicleData.model || '',
+      make: freshVehicleData.make,
+      year: freshVehicleData.year?.toString(),
+      fuelType: freshVehicleData.fuel_type,
+      registrationDate: freshVehicleData.registration_date,
+      ownerName: freshVehicleData.owner_name,
+      chassisNumber: freshVehicleData.chassis_number,
+      engineNumber: freshVehicleData.engine_number,
+      registrationAuthority: freshVehicleData.registration_authority,
+      fitnessExpiry: (freshVehicleData as any).fit_up_to,
+      puccExpiry: freshVehicleData.pollution_expiry,
+      insuranceExpiry: freshVehicleData.insurance_expiry,
       success: true,
       cached: false
     };

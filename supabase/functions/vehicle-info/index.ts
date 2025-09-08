@@ -124,12 +124,17 @@ serve(async (req: Request) => {
   }
 });
 
-// Helper: fetch with timeout and robust parsing of Lambda responses
+// Helper: fetch with timeout and comprehensive debugging
 const DEFAULT_TIMEOUT_MS = 30000;
 async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  console.log('=== COMPREHENSIVE LAMBDA DEBUG START ===');
+  console.log('Lambda URL:', url);
+  console.log('Original payload:', JSON.stringify(payload, null, 2));
+  
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let rawText = '';
+  
   try {
     // Prepare headers with proxy token if available
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -137,23 +142,98 @@ async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs 
     if (proxyToken) {
       headers['x-proxy-token'] = proxyToken;
     }
+    console.log('Request headers:', JSON.stringify(headers, null, 2));
 
+    // Try primary payload format first
+    let currentPayload = { ...payload };
+    console.log('Trying payload format 1:', JSON.stringify(currentPayload, null, 2));
+    
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(currentPayload),
       signal: controller.signal,
     });
+    
     const status = res.status;
     const ok = res.ok;
     rawText = await res.text();
-    console.log(`[Lambda] Status: ${status} OK: ${ok}`);
-    console.log('[Lambda] Raw response:', rawText.slice(0, 500));
+    
+    console.log('=== LAMBDA RESPONSE ===');
+    console.log(`Status: ${status} OK: ${ok}`);
+    console.log('Response headers:', JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2));
+    console.log('Raw response body:', rawText);
+    
     let parsed: any = null;
-    try { parsed = rawText ? JSON.parse(rawText) : null; } catch (_e) { parsed = null; }
+    try { 
+      parsed = rawText ? JSON.parse(rawText) : null;
+      console.log('Parsed response:', JSON.stringify(parsed, null, 2));
+    } catch (e) { 
+      console.log('JSON parse error:', e.message);
+      parsed = null; 
+    }
+    
+    // Check if we got parameter error and need to retry with different format
+    if (parsed && parsed.error && parsed.error.includes('Missing required parameters')) {
+      console.log('=== PARAMETER ERROR DETECTED - TRYING ALTERNATIVE FORMAT ===');
+      
+      // Try alternative parameter mapping
+      const altPayload = {
+        ...payload,
+        type: payload.service || payload.type, // Map service -> type
+        vehicleNumber: payload.vehicleId || payload.vehicleNumber, // Alternative naming
+      };
+      
+      // Remove the service key if we're using type
+      if (altPayload.service && altPayload.type) {
+        delete altPayload.service;
+      }
+      
+      console.log('Retrying with alternative payload:', JSON.stringify(altPayload, null, 2));
+      
+      const retryRes = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(altPayload),
+        signal: controller.signal,
+      });
+      
+      const retryStatus = retryRes.status;
+      const retryOk = retryRes.ok;
+      const retryRawText = await retryRes.text();
+      
+      console.log('=== RETRY RESPONSE ===');
+      console.log(`Retry Status: ${retryStatus} OK: ${retryOk}`);
+      console.log('Retry Raw response:', retryRawText);
+      
+      let retryParsed: any = null;
+      try { 
+        retryParsed = retryRawText ? JSON.parse(retryRawText) : null;
+        console.log('Retry Parsed response:', JSON.stringify(retryParsed, null, 2));
+      } catch (e) { 
+        console.log('Retry JSON parse error:', e.message);
+        retryParsed = null; 
+      }
+      
+      // Use retry result if it's better
+      if (retryParsed && (!retryParsed.error || !retryParsed.error.includes('Missing required parameters'))) {
+        console.log('Using retry result - it appears successful');
+        console.log('=== COMPREHENSIVE LAMBDA DEBUG END ===');
+        return { status: retryStatus, ok: retryOk, rawText: retryRawText, parsed: retryParsed };
+      } else {
+        console.log('Retry also failed, using original result');
+      }
+    }
+    
+    console.log('=== COMPREHENSIVE LAMBDA DEBUG END ===');
     return { status, ok, rawText, parsed };
+    
   } catch (e) {
-    console.error('[Lambda] Request error:', e);
+    console.error('=== LAMBDA REQUEST ERROR ===');
+    console.error('Error type:', e.constructor.name);
+    console.error('Error message:', e.message);
+    console.error('Stack trace:', e.stack);
+    console.log('=== COMPREHENSIVE LAMBDA DEBUG END ===');
     return { status: 0, ok: false, rawText, parsed: null, error: e instanceof Error ? e.message : 'Unknown error' };
   } finally {
     clearTimeout(timeoutId);
@@ -244,21 +324,44 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       });
     }
 
-    // Call Lambda for fresh data
+    // Call Lambda for fresh data with enhanced parameter mapping
     const lambdaUrl = Deno.env.get('LAMBDA_URL');
     if (!lambdaUrl) {
       throw new Error('LAMBDA_URL not configured');
     }
 
+    // Send both parameter formats for maximum compatibility
     const payload = {
-      service: 'rc',
+      service: 'rc',        // Primary format expected by our Lambda
+      type: 'rc',           // Fallback format in case routing expects this
       vehicleId: vehicleNumber,
+      vehicleNumber: vehicleNumber,  // Alternative parameter name
     };
-    console.log('Forwarding to Lambda:', payload);
+    console.log('Sending RC verification to Lambda with dual format:', JSON.stringify(payload, null, 2));
 
     const res = await fetchLambda(lambdaUrl, payload);
+    
+    // Enhanced response validation with detailed debugging
     if (!res.parsed) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid Lambda response', details: res.rawText || 'Empty response' }), {
+      const errorDetails = {
+        lambdaUrl,
+        lambdaStatus: res.status,
+        lambdaOk: res.ok,
+        hasRawText: !!res.rawText,
+        rawTextLength: res.rawText?.length || 0,
+        rawTextPreview: res.rawText?.slice(0, 500),
+        requestPayload: payload,
+        proxyTokenConfigured: !!Deno.env.get('AWS_LAMBDA_PROXY_TOKEN')
+      };
+      
+      console.error('Invalid Lambda response - debugging details:', JSON.stringify(errorDetails, null, 2));
+      
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid Lambda response', 
+        details: errorDetails,
+        troubleshooting: 'Check Lambda URL, proxy token, and network connectivity'
+      }), {
         status: res.status || 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -266,7 +369,19 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     const lambdaData = res.parsed;
 
     if (!lambdaSucceeded(res)) {
-      // Log failed verification
+      // Enhanced error logging and response
+      const errorDetails = {
+        lambdaStatus: res.status,
+        lambdaOk: res.ok,
+        lambdaUrl,
+        errorMessage: lambdaData?.error || lambdaData?.message || 'No specific error message',
+        rawResponse: res.rawText?.slice(0, 1000),
+        requestPayload: payload
+      };
+      
+      console.error('RC verification failed with details:', JSON.stringify(errorDetails, null, 2));
+      
+      // Log failed verification with enhanced details
       await supabase
         .from('rc_verifications')
         .insert({
@@ -276,7 +391,12 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
           error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Unknown error',
         });
 
-      return new Response(JSON.stringify({ success: false, error: lambdaData?.error || lambdaData?.message || 'Verification failed', details: res.rawText?.slice(0, 500) }), {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: lambdaData?.error || lambdaData?.message || 'RC verification failed', 
+        details: errorDetails,
+        troubleshooting: 'Check Lambda configuration and API connectivity'
+      }), {
         status: res.status || 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -420,11 +540,14 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
       throw new Error('LAMBDA_URL not configured');
     }
 
+    // Send both parameter formats for maximum compatibility
     const payload = {
-      service: 'fastag',
+      service: 'fastag',    // Primary format expected by our Lambda
+      type: 'fastag',       // Fallback format in case routing expects this
       vehicleId: vehicleNumber,
+      vehicleNumber: vehicleNumber,  // Alternative parameter name
     };
-    console.log('Forwarding to Lambda:', payload);
+    console.log('Sending FASTag verification to Lambda with dual format:', JSON.stringify(payload, null, 2));
 
     // Enhanced retry logic with exponential backoff - Phase 3 implementation
     let res = await fetchLambda(lambdaUrl, payload, 30000);
@@ -774,13 +897,16 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
       throw new Error('LAMBDA_URL not configured');
     }
 
+    // Send both parameter formats for maximum compatibility
     const payload = {
-      service: 'challans',
+      service: 'challans',  // Primary format expected by our Lambda
+      type: 'challans',     // Fallback format in case routing expects this
       vehicleId: vehicleNumber,
+      vehicleNumber: vehicleNumber,  // Alternative parameter name
       chassis,
       engine_no,
     };
-    console.log('Forwarding to Lambda:', payload);
+    console.log('Sending Challans verification to Lambda with dual format:', JSON.stringify(payload, null, 2));
     // Increase timeout for challans (can be slower upstream)
     const res = await fetchLambda(lambdaUrl, payload, 30000);
     console.log('[Lambda] Raw response:', res.rawText);

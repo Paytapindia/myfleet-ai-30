@@ -33,10 +33,11 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const fetchFastagData = async () => {
+  const fetchFastagData = async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      const result = await verifyFastag(vehicleNumber);
+      console.log('Fetching FASTag data for vehicle:', vehicleNumber, 'forceRefresh:', forceRefresh);
+      const result = await verifyFastag(vehicleNumber, forceRefresh);
       setFastagData(result);
       
       // Phase 4: Enhanced UX - Show appropriate messages for different scenarios
@@ -77,6 +78,11 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setFastagData(null); // Clear existing data
+    fetchFastagData(true); // Force refresh
   };
 
   // Auto-fetch data when modal opens
@@ -147,7 +153,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                 <div className="text-center">
                   <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No FASTag data available</p>
-                  <Button onClick={fetchFastagData} className="mt-4">
+                  <Button onClick={() => fetchFastagData()} className="mt-4">
                     Retry
                   </Button>
                 </div>
@@ -167,7 +173,7 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                       {fastagData.details}
                     </p>
                   )}
-                  <Button onClick={fetchFastagData}>
+                  <Button onClick={() => fetchFastagData()}>
                     Try Again
                   </Button>
                 </div>
@@ -291,13 +297,13 @@ const FASTagDetailsModal = ({ open, setOpen, vehicleNumber }: FASTagDetailsModal
                   </div>
                   
                   <Button 
-                    onClick={fetchFastagData} 
+                    onClick={handleRefresh} 
                     variant="outline" 
                     size="sm" 
                     className="mt-4"
                     disabled={isLoading}
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh Data
                   </Button>
                 </CardContent>

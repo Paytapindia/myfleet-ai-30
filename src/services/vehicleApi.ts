@@ -95,7 +95,8 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
     const { data, error } = await supabase.functions.invoke('vehicle-info', {
       body: {
         type: 'rc',
-        vehicleId: vehicleNumber
+        vehicleId: vehicleNumber,
+        forceRefresh
       },
       headers: {
         'Authorization': `Bearer ${session.access_token}`

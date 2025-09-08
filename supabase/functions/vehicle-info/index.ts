@@ -55,7 +55,7 @@ serve(async (req: Request) => {
       });
     }
     console.log('Incoming request body:', rawBody);
-    const { type, vehicleNumber, vehicleId, chassis, engine_no } = rawBody;
+    const { type, vehicleNumber, vehicleId, chassis, engine_no, forceRefresh } = rawBody;
 
     // Validate request
     if (!type || !(vehicleNumber || vehicleId)) {
@@ -84,7 +84,7 @@ serve(async (req: Request) => {
     // Handle service-specific logic
     switch (type) {
       case 'rc':
-        return await handleRCVerification(supabase, user.id, vehicleNumber || vehicleId);
+        return await handleRCVerification(supabase, user.id, vehicleNumber || vehicleId, forceRefresh);
       
       case 'fastag':
         return await handleFastagVerification(supabase, user.id, vehicleNumber || vehicleId);
@@ -99,7 +99,7 @@ serve(async (req: Request) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no, rawBody.forceRefresh);
+        return await handleChallansVerification(supabase, user.id, vehicleNumber || vehicleId, chassis, engine_no, forceRefresh);
       
       default:
         return new Response(JSON.stringify({ 
@@ -130,9 +130,16 @@ async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs 
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let rawText = '';
   try {
+    // Prepare headers with proxy token if available
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const proxyToken = Deno.env.get('AWS_LAMBDA_PROXY_TOKEN') || Deno.env.get('SHARED_PROXY_TOKEN');
+    if (proxyToken) {
+      headers['x-proxy-token'] = proxyToken;
+    }
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
@@ -200,39 +207,41 @@ function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
   return false;
 }
 
-async function handleRCVerification(supabase: any, userId: string, vehicleNumber: string) {
+async function handleRCVerification(supabase: any, userId: string, vehicleNumber: string, forceRefresh = false) {
   try {
-    // Check for cached data
-    const { data: existingVehicle } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('number', vehicleNumber)
-      .single();
+    // Check for cached data unless force refresh is requested
+    if (!forceRefresh) {
+      const { data: existingVehicle } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('number', vehicleNumber)
+        .single();
 
-    if (existingVehicle && existingVehicle.rc_verified_at) {
-      console.log('Returning cached RC data');
-      return new Response(JSON.stringify({
-        success: true,
-        data: {
-          number: existingVehicle.number,
-          model: existingVehicle.model || '',
-          make: existingVehicle.make,
-          year: existingVehicle.year,
-          fuelType: existingVehicle.fuel_type,
-          registrationDate: existingVehicle.registration_date,
-          ownerName: existingVehicle.owner_name,
-          chassisNumber: existingVehicle.chassis_number,
-          engineNumber: existingVehicle.engine_number,
-          registrationAuthority: existingVehicle.registration_authority,
-          fitnessExpiry: existingVehicle.fitness_expiry,
-          puccExpiry: existingVehicle.pucc_expiry,
-          insuranceExpiry: existingVehicle.insurance_expiry
-        },
-        cached: true
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (existingVehicle && existingVehicle.rc_verified_at) {
+        console.log('Returning cached RC data');
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            number: existingVehicle.number,
+            model: existingVehicle.model || '',
+            make: existingVehicle.make,
+            year: existingVehicle.year,
+            fuelType: existingVehicle.fuel_type,
+            registrationDate: existingVehicle.registration_date,
+            ownerName: existingVehicle.owner_name,
+            chassisNumber: existingVehicle.chassis_number,
+            engineNumber: existingVehicle.engine_number,
+            registrationAuthority: existingVehicle.registration_authority,
+            fitnessExpiry: existingVehicle.fit_up_to,
+            puccExpiry: existingVehicle.pollution_expiry,
+            insuranceExpiry: existingVehicle.insurance_expiry
+          },
+          cached: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Call Lambda for fresh data
@@ -242,7 +251,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     }
 
     const payload = {
-      type: 'rc',
+      service: 'rc',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -273,22 +282,25 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
       });
     }
 
+    // Extract RC data from Lambda response (handle nested structure)
+    const rcData = lambdaData.data || lambdaData.response || lambdaData;
+    
     // Update/create vehicle record with RC data
     const vehicleData = {
       user_id: userId,
       number: vehicleNumber,
-      model: lambdaData.data.model || 'Not specified',
-      make: lambdaData.data.make,
-      year: lambdaData.data.year ? parseInt(lambdaData.data.year) : null,
-      fuel_type: lambdaData.data.fuelType,
-      registration_date: lambdaData.data.registrationDate,
-      owner_name: lambdaData.data.ownerName,
-      chassis_number: lambdaData.data.chassisNumber,
-      engine_number: lambdaData.data.engineNumber,
-      registration_authority: lambdaData.data.registrationAuthority,
-      fitness_expiry: lambdaData.data.fitnessExpiry,
-      pucc_expiry: lambdaData.data.puccExpiry,
-      insurance_expiry: lambdaData.data.insuranceExpiry,
+      model: rcData.model || 'Not specified',
+      make: rcData.make,
+      year: rcData.year ? parseInt(rcData.year) : null,
+      fuel_type: rcData.fuelType,
+      registration_date: rcData.registrationDate,
+      owner_name: rcData.ownerName,
+      chassis_number: rcData.chassisNumber,
+      engine_number: rcData.engineNumber,
+      registration_authority: rcData.registrationAuthority,
+      fit_up_to: rcData.fitnessExpiry,
+      pollution_expiry: rcData.puccExpiry,
+      insurance_expiry: rcData.insuranceExpiry,
       rc_verified_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -311,10 +323,29 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
         user_id: userId,
         vehicle_number: vehicleNumber,
         status: 'completed',
-        verification_data: lambdaData.data
+        verification_data: rcData
       });
 
-    return new Response(JSON.stringify(lambdaData), {
+    // Return normalized response with correct data structure
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        number: vehicleNumber,
+        model: rcData.model || 'Not specified',
+        make: rcData.make,
+        year: rcData.year,
+        fuelType: rcData.fuelType,
+        registrationDate: rcData.registrationDate,
+        ownerName: rcData.ownerName,
+        chassisNumber: rcData.chassisNumber,
+        engineNumber: rcData.engineNumber,
+        registrationAuthority: rcData.registrationAuthority,
+        fitnessExpiry: rcData.fitnessExpiry,
+        puccExpiry: rcData.puccExpiry,
+        insuranceExpiry: rcData.insuranceExpiry
+      },
+      cached: false
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -390,7 +421,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     }
 
     const payload = {
-      type: 'fastag',
+      service: 'fastag',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -744,7 +775,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     }
 
     const payload = {
-      type: 'challan',
+      service: 'challans',
       vehicleId: vehicleNumber,
       chassis,
       engine_no,

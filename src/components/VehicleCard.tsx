@@ -142,6 +142,27 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-2 sm:space-y-3 pt-2 sm:pt-3">
+            {/* Fines/Challans Status */}
+            <div 
+              className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20 cursor-pointer hover:bg-background/50 transition-all duration-300"
+              onClick={() => setShowChallanModal(true)}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Fines</p>
+                  <p className={`text-xs font-medium ${vehicle.challans > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {vehicle.challans > 0 ? `${vehicle.challans} pending` : 'No fines'}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant={vehicle.challans > 0 ? "destructive" : "secondary"} className="rounded-xl">
+                {vehicle.challans > 0 ? 'Pay Now' : 'Check'}
+              </Button>
+            </div>
+
             {/* Insurance Status */}
             <div className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20">
               <div className="flex items-center space-x-3">

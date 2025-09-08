@@ -85,14 +85,6 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
             </div>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 ml-2">
-            {vehicle.challans > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="rounded-full px-2.5 py-1 text-xs font-medium bg-red-500/10 text-red-600 border-red-200/50"
-              >
-                {vehicle.challans} Fine{vehicle.challans > 1 ? 's' : ''}
-              </Badge>
-            )}
             <VehicleDetailsPopover vehicleNumber={vehicle.number} />
           </div>
         </div>
@@ -150,27 +142,6 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-2 sm:space-y-3 pt-2 sm:pt-3">
-            {/* Fines Count */}
-            <div 
-              className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20 cursor-pointer hover:bg-background/50 transition-all duration-300"
-              onClick={() => setShowChallanModal(true)}
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <AlertTriangle className="h-4 w-4 text-primary" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Fines</p>
-                  <p className={`text-xs font-medium ${vehicle.challans > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {vehicle.challans} Pending
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" variant={vehicle.challans > 0 ? "destructive" : "secondary"} className="rounded-xl">
-                {vehicle.challans > 0 ? 'Pay Now' : 'View'}
-              </Button>
-            </div>
-
             {/* Insurance Status */}
             <div className="flex items-center justify-between p-4 rounded-2xl bg-background/30 border border-border/20">
               <div className="flex items-center space-x-3">

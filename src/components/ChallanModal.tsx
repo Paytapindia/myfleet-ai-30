@@ -146,7 +146,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
             issueDate: challan.date || new Date().toISOString().split('T')[0],
             location: challan.area || challan.state || 'Unknown',
             violation: challan.offence || 'Traffic Violation',
-            status: challan.challan_status === 'Cash' || challan.challan_status === 'Disposed' ? 'paid' : 'pending',
+            status: challan.challan_status === 'Cash' ? 'paid' : 'pending',
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             vehicleNumber: vehicleNum
           }));

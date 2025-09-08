@@ -146,8 +146,8 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Trigger RC verification to fetch and cache vehicle details
       try {
-        const { data: rcData, error: rcError } = await supabase.functions.invoke('rc-verification', {
-          body: { vehicleNumber: vehicleData.number }
+        const { data: rcData, error: rcError } = await supabase.functions.invoke('vehicle-info', {
+          body: { type: 'rc', vehicleId: vehicleData.number }
         });
 
         if (rcError) {

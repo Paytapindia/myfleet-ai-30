@@ -67,6 +67,8 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
       };
     }
 
+    console.log('RC API Response:', data); // Debug log
+
     if (!data.success) {
       return {
         number: vehicleNumber,
@@ -76,8 +78,10 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
       };
     }
 
-    // Transform the API response to our interface
-    const vehicleData = data.data;
+    // Handle both flat and nested response structures
+    const vehicleData = data.data || data;
+    console.log('Vehicle Data:', vehicleData); // Debug log
+    
     return {
       number: vehicleData.number || vehicleNumber,
       model: vehicleData.model || '',

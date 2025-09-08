@@ -107,25 +107,33 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         throw new Error(error.message || 'Failed to fetch challans - This may take up to 10 seconds');
       }
 
-      console.log('Challans API response:', data);
+      console.log('Challans API response:', data); // Debug log
       console.log('Raw challans data:', data?.data);
 
+      if (!data.success) {
+        setError(data.error || 'Challan verification failed');
+        setIsLoading(false);
+        return;
+      }
+
       if (data?.success && data?.data) {
-        const challansData = data.data;
+        // Handle both flat and nested response structures
+        const challanData = data.data || data;
+        console.log('Challan Data:', challanData); // Debug log
+        
         setIsCached(data.cached || false);
-        setLastFetched(data.verifiedAt || new Date().toISOString());
         
         // Parse challans from various response formats (normalize structure)
         let challansArray: any[] = [];
         
-        if (Array.isArray(challansData?.response?.challans)) {
-          challansArray = challansData.response.challans;
-        } else if (Array.isArray(challansData?.challans)) {
-          challansArray = challansData.challans;
-        } else if (Array.isArray(challansData?.data)) {
-          challansArray = challansData.data;
-        } else if (Array.isArray(challansData)) {
-          challansArray = challansData as any[];
+        if (Array.isArray(challanData?.response?.challans)) {
+          challansArray = challanData.response.challans;
+        } else if (Array.isArray(challanData?.challans)) {
+          challansArray = challanData.challans;
+        } else if (Array.isArray(challanData?.data)) {
+          challansArray = challanData.data;
+        } else if (Array.isArray(challanData)) {
+          challansArray = challanData as any[];
         }
         
         console.log('Extracted challans array:', challansArray);

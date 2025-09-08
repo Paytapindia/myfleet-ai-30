@@ -63,7 +63,26 @@ export const verifyFastag = async (vehicleNumber: string, retryCount = 0): Promi
       };
     }
 
-    return data;
+    console.log('FASTag API Response:', data); // Debug log
+
+    if (!data.success) {
+      return {
+        success: false,
+        error: data.error || 'FASTag verification failed'
+      };
+    }
+
+    // Handle both flat and nested response structures
+    const fastagData = data.data || data;
+    console.log('FASTag Data:', fastagData); // Debug log
+
+    return {
+      success: true,
+      data: fastagData,
+      cached: data.cached || false,
+      verifiedAt: data.verifiedAt,
+      dataAge: data.dataAge
+    };
   } catch (error: any) {
     console.error('FASTag API error:', error);
     

@@ -36,8 +36,8 @@ const mainItems = [
 
 const managerItems = [
   { title: "Vehicle Manager", url: "/vehicle-manager", icon: Truck },
-  { title: "GPS Manager", url: "/gps-manager", icon: Satellite },
   { title: "PayTap Dashboard", url: "/paytap-dashboard", icon: CreditCard },
+  { title: "GPS Manager", url: "/gps-manager", icon: Satellite },
   { title: "Challans Dashboard", url: "/challans-dashboard", icon: AlertCircle },
   { title: "Vehicle Operators", url: "/manage-operators", icon: Users },
   { title: "Trip Manager", url: "/trip-manager", icon: Car },

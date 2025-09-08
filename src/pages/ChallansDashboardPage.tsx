@@ -8,7 +8,7 @@ import { AlertCircle, Car, CreditCard, Eye, FileText, Search, Calendar, MapPin, 
 import { useVehicles } from "@/contexts/VehicleContext";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 interface Challan {
@@ -57,56 +57,127 @@ export default function ChallansDashboardPage() {
   const fetchChallansData = async () => {
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await challanApi.getAllChallans();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get all user's vehicles with necessary details
+      const { data: userVehicles, error: vehiclesError } = await supabase
+        .from('vehicles')
+        .select('id, number, chassis_number, engine_number')
+        .eq('user_id', user.id);
+
+      if (vehiclesError) {
+        throw new Error('Failed to fetch vehicles');
+      }
+
+      if (!userVehicles || userVehicles.length === 0) {
+        setChallans([]);
+        setSummary({
+          totalPending: 0,
+          totalAmount: 0,
+          overdueCount: 0,
+          paidThisMonth: 0
+        });
+        return;
+      }
+
+      // Get challan data for all vehicles
+      const allChallans: Challan[] = [];
+      const { data: { session } } = await supabase.auth.getSession();
       
-      // Mock data for demonstration
-      const mockChallans: Challan[] = [
-        {
-          id: "1",
-          challanNumber: "CH001234",
-          vehicleNumber: "KA01AB1234",
-          vehicleId: vehicles[0]?.id || "1",
-          amount: 2000,
-          issueDate: "2024-01-15",
-          dueDate: "2024-02-15",
-          location: "MG Road, Bangalore",
-          violation: "Over Speed",
-          status: "pending",
-          penaltyAmount: 500,
-          courtFee: 200,
-          totalAmount: 2700
-        },
-        {
-          id: "2",
-          challanNumber: "CH001235",
-          vehicleNumber: "KA01AB5678",
-          vehicleId: vehicles[1]?.id || "2",
-          amount: 1500,
-          issueDate: "2024-01-20",
-          dueDate: "2024-02-20",
-          location: "Brigade Road, Bangalore",
-          violation: "Signal Jump",
-          status: "pending",
-          totalAmount: 1500
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
+      // Fetch challans for each vehicle that has RC data
+      for (const vehicle of userVehicles) {
+        if (!vehicle.chassis_number || !vehicle.engine_number) {
+          console.log(`Skipping vehicle ${vehicle.number} - missing RC data`);
+          continue;
         }
-      ];
+
+        try {
+          const { data, error } = await supabase.functions.invoke('vehicle-info', {
+            body: {
+              type: 'challan',
+              vehicleId: vehicle.number,
+              chassis: vehicle.chassis_number,
+              engine_no: vehicle.engine_number,
+              forceRefresh: false
+            },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            }
+          });
+
+          if (error) {
+            console.error(`Error fetching challans for ${vehicle.number}:`, error);
+            continue;
+          }
+
+          if (data?.success && data?.data) {
+            const challanData = data.data || data;
+            let challansArray: any[] = [];
+            
+            // Parse challans from various response formats
+            if (Array.isArray(challanData?.response?.challans)) {
+              challansArray = challanData.response.challans;
+            } else if (Array.isArray(challanData?.challans)) {
+              challansArray = challanData.challans;
+            } else if (Array.isArray(challanData?.data)) {
+              challansArray = challanData.data;
+            } else if (Array.isArray(challanData)) {
+              challansArray = challanData as any[];
+            }
+            
+            if (challansArray.length > 0) {
+              const parsedChallans: Challan[] = challansArray.map((challan: any) => ({
+                id: challan.challan_no || `ch-${Math.random()}`,
+                challanNumber: challan.challan_no || 'N/A',
+                vehicleNumber: vehicle.number,
+                vehicleId: vehicle.id,
+                amount: parseFloat(challan.amount || '0'),
+                issueDate: challan.date || new Date().toISOString().split('T')[0],
+                location: challan.area || challan.state || 'Unknown',
+                violation: challan.offence || 'Traffic Violation',
+                status: challan.challan_status === 'Cash' ? 'paid' : 'pending',
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                totalAmount: parseFloat(challan.amount || '0')
+              }));
+              
+              allChallans.push(...parsedChallans);
+            }
+          }
+        } catch (vehicleError) {
+          console.error(`Error processing vehicle ${vehicle.number}:`, vehicleError);
+        }
+      }
       
-      setChallans(mockChallans);
+      setChallans(allChallans);
       
-      const pendingChallans = mockChallans.filter(c => c.status === 'pending');
+      // Calculate summary from real data
+      const pendingChallans = allChallans.filter(c => c.status === 'pending');
+      const paidChallans = allChallans.filter(c => c.status === 'paid');
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
       setSummary({
         totalPending: pendingChallans.length,
         totalAmount: pendingChallans.reduce((sum, c) => sum + c.totalAmount, 0),
         overdueCount: pendingChallans.filter(c => new Date(c.dueDate) < new Date()).length,
-        paidThisMonth: mockChallans.filter(c => c.status === 'paid' && 
-          new Date(c.issueDate).getMonth() === new Date().getMonth()).length
+        paidThisMonth: paidChallans.filter(c => {
+          const challanDate = new Date(c.issueDate);
+          return challanDate.getMonth() === currentMonth && challanDate.getFullYear() === currentYear;
+        }).length
       });
+
     } catch (error) {
       console.error('Failed to fetch challans:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch challans data",
+        description: error instanceof Error ? error.message : "Failed to fetch challans data",
         variant: "destructive"
       });
     } finally {

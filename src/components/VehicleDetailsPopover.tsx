@@ -21,13 +21,22 @@ const VehicleDetailsPopover = ({ vehicleNumber }: VehicleDetailsPopoverProps) =>
     setError(null);
     
     try {
+      console.log('🚗 [VehicleDetailsPopover] Fetching details for:', vehicleNumber);
       const details = await fetchVehicleDetails(vehicleNumber);
+      console.log('🚗 [VehicleDetailsPopover] Received details:', details);
+      console.log('🚗 [VehicleDetailsPopover] Success status:', details.success);
+      console.log('🚗 [VehicleDetailsPopover] Model field:', details.model);
+      
       setVehicleDetails(details);
       
       if (!details.success) {
+        console.log('🚗 [VehicleDetailsPopover] API call failed:', details.error);
         setError(details.error || 'Failed to fetch vehicle details');
+      } else {
+        console.log('🚗 [VehicleDetailsPopover] API call successful, should show data');
       }
     } catch (err) {
+      console.error('🚗 [VehicleDetailsPopover] Network error:', err);
       setError('Network error occurred');
     } finally {
       setIsLoading(false);
@@ -85,7 +94,15 @@ const handleRetry = async () => {
   </div>
 )}
 
-          {vehicleDetails && vehicleDetails.success && !isLoading && (
+          {(() => {
+            console.log('🚗 [VehicleDetailsPopover] Render condition check:', {
+              vehicleDetails: !!vehicleDetails,
+              success: vehicleDetails?.success,
+              loading: isLoading,
+              shouldShow: vehicleDetails && vehicleDetails.success && !isLoading
+            });
+            return vehicleDetails && vehicleDetails.success && !isLoading;
+          })() && (
             <div className="space-y-4">
               {vehicleDetails.cached && (
                 <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">

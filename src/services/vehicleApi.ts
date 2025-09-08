@@ -92,7 +92,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
     // Step 2: Fetch fresh data from edge function
     console.log(`🚗 [fetchVehicleDetails] Calling edge function (attempt ${retryCount + 1})`);
 
-    const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
+    const { data, error } = await supabase.functions.invoke('vehicle-info', {
       body: {
         type: 'rc',
         vehicleId: vehicleNumber

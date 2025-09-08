@@ -39,7 +39,7 @@ export const fetchVehicleDetails = async (vehicleNumber: string, retryCount = 0)
     console.log(`RC verification attempt ${retryCount + 1} for vehicle: ${vehicleNumber}`);
 
     // Call our unified Supabase Edge Function for RC verification
-    const { data, error } = await supabase.functions.invoke('vehicle-info', {
+    const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
       body: {
         type: 'rc',
         vehicleId: vehicleNumber

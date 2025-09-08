@@ -80,7 +80,7 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('vehicle-info', {
+      const { data, error } = await supabase.functions.invoke('vehicleinfo-api-club', {
         body: {
           type: 'challan',
           vehicleId: vehicleNum,

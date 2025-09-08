@@ -154,18 +154,49 @@ async function fetchLambda(url: string, payload: Record<string, any>, timeoutMs 
 
 function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
   const d = res.parsed;
-  if (!d) return false;
+  console.log('[Lambda Success Check] Parsed data:', JSON.stringify(d));
+  
+  if (!d) {
+    console.log('[Lambda Success Check] No parsed data');
+    return false;
+  }
+  
   if (typeof d === 'object') {
-    if (d.success === true) return true;
-    if (typeof d.status === 'string' && d.status.toLowerCase() === 'success') return true;
+    // Check for explicit success indicators
+    if (d.success === true) {
+      console.log('[Lambda Success Check] Found d.success === true');
+      return true;
+    }
+    if (typeof d.status === 'string' && d.status.toLowerCase() === 'success') {
+      console.log('[Lambda Success Check] Found status === success');
+      return true;
+    }
+    
     // Accept common APIclub shapes as success too
-    if (res.ok && (d.data || d.result || d.payload || d.response)) return true;
-    // Heuristic: nested response object contains FASTag fields
-    const r = (d as any).response;
+    if (res.ok && (d.data || d.result || d.payload || d.response)) {
+      console.log('[Lambda Success Check] Found data containers with OK status');
+      return true;
+    }
+    
+    // Enhanced FASTag response detection
+    const r = d.response || d.data || d.result || d;
     if (r && typeof r === 'object') {
-      if ('tag_status' in r || 'balance' in r || 'tagId' in r || 'tag_id' in r) return true;
+      const hasFastagFields = ('tag_status' in r || 'balance' in r || 'tagId' in r || 'tag_id' in r || 
+                              'linked' in r || 'vehicle_number' in r || 'vehicleNumber' in r);
+      if (hasFastagFields) {
+        console.log('[Lambda Success Check] Found FASTag fields in response');
+        return true;
+      }
+    }
+    
+    // Check for error indicators
+    if (d.error || d.message) {
+      console.log('[Lambda Success Check] Found error/message, treating as failure');
+      return false;
     }
   }
+  
+  console.log('[Lambda Success Check] No success indicators found');
   return false;
 }
 
@@ -456,16 +487,23 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     const lambdaData = res.parsed;
 
     if (lambdaSucceeded(res)) {
-      const r = lambdaData.response || lambdaData.data || lambdaData.result || {};
+      console.log('[FASTag Success] Processing successful Lambda response');
+      const r = lambdaData.response || lambdaData.data || lambdaData.result || lambdaData || {};
+      
+      // Enhanced data extraction with better field mapping
       const fastagData = {
-        balance: typeof r.balance === 'number' ? r.balance : 0,
-        linked: typeof r.tag_status === 'string' ? r.tag_status.toLowerCase() === 'active' : false,
-        tagId: r.tag_id ?? r.tagId ?? undefined,
-        status: r.tag_status ?? r.status ?? undefined,
-        lastTransactionDate: r.last_transaction_date ?? r.lastTransactionDate ?? undefined,
-        vehicleNumber: r.vehicle_number ?? r.vehicleNumber ?? vehicleNumber,
-        bankName: r.bank_name ?? r.bankName ?? undefined,
+        balance: r.balance ?? r.current_balance ?? r.wallet_balance ?? 0,
+        linked: r.linked ?? (r.tag_status && r.tag_status.toLowerCase() === 'active') ?? 
+                (r.status && r.status.toLowerCase() === 'active') ?? false,
+        tagId: r.tag_id ?? r.tagId ?? r.fastag_id ?? undefined,
+        status: r.tag_status ?? r.status ?? r.state ?? undefined,
+        lastTransactionDate: r.last_transaction_date ?? r.lastTransactionDate ?? 
+                            r.last_txn_date ?? undefined,
+        vehicleNumber: r.vehicle_number ?? r.vehicleNumber ?? r.reg_no ?? vehicleNumber,
+        bankName: r.bank_name ?? r.bankName ?? r.issuer_bank ?? undefined,
       };
+      
+      console.log('[FASTag Success] Extracted data:', fastagData);
 
       // Update verification record with success
       await supabase
@@ -493,6 +531,9 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
+      console.log('[FASTag Failure] Lambda failed, trying fallback data');
+      console.log('[FASTag Failure] Lambda response:', JSON.stringify(lambdaData));
+      
       // Lambda failed - try to fallback to any cached data
       const { data: fallbackVerification } = await supabase
         .from('fastag_verifications')
@@ -505,33 +546,50 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
         .single();
 
       // Update pending record with failure
+      const errorMsg = lambdaData?.error || lambdaData?.message || res.error || 'Service timeout';
+      console.log('[FASTag Failure] Updating record with error:', errorMsg);
+      
       await supabase
         .from('fastag_verifications')
         .update({
           status: 'failed',
-          error_message: lambdaData?.error || lambdaData?.message || res.rawText || 'Timeout/Network error',
+          error_message: errorMsg,
         })
         .eq('id', pendingRecord.id);
 
       if (fallbackVerification && fallbackVerification.verification_data) {
         console.log('Using stale FASTag data as fallback');
         
-        // Update vehicle with stale data
+        // Ensure fallback data has proper structure
+        const fallbackData = {
+          balance: fallbackVerification.verification_data.balance ?? 0,
+          linked: fallbackVerification.verification_data.linked ?? false,
+          tagId: fallbackVerification.verification_data.tagId,
+          status: fallbackVerification.verification_data.status,
+          lastTransactionDate: fallbackVerification.verification_data.lastTransactionDate,
+          vehicleNumber: fallbackVerification.verification_data.vehicleNumber ?? vehicleNumber,
+          bankName: fallbackVerification.verification_data.bankName,
+        };
+        
+        // Update vehicle with stale data - CRITICAL: Always update vehicles table
         await supabase
           .from('vehicles')
           .update({
-            fasttag_balance: fallbackVerification.verification_data.balance || 0,
-            fasttag_linked: fallbackVerification.verification_data.linked || false,
+            fasttag_balance: fallbackData.balance,
+            fasttag_linked: fallbackData.linked,
+            fasttag_last_synced_at: new Date().toISOString(), // Update sync time even for stale data
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId)
           .eq('number', vehicleNumber);
 
+        console.log('[FASTag Fallback] Updated vehicles table with fallback data:', fallbackData);
+
         return new Response(JSON.stringify({
-          success: false,
+          success: false, // IMPORTANT: Keep as false to indicate this is cached/stale data
           error: 'Live verification failed, showing cached data',
-          details: lambdaData?.error || 'Service temporarily unavailable',
-          data: fallbackVerification.verification_data,
+          details: errorMsg,
+          data: fallbackData, // CRITICAL: Include data so fastagApi can use it
           cached: true,
           verifiedAt: fallbackVerification.created_at
         }), {
@@ -542,8 +600,10 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
 
       return new Response(JSON.stringify({
         success: false,
-        error: lambdaData?.error || lambdaData?.message || 'Service temporarily unavailable',
-        details: res.rawText?.slice(0, 500) || 'Network timeout - please try again'
+        error: errorMsg || 'Service temporarily unavailable',
+        details: res.rawText?.slice(0, 500) || 'Network timeout - please try again',
+        data: null, // Explicitly set to null when no fallback data available
+        cached: false
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

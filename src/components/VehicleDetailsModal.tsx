@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Car, Calendar, Fuel, MapPin, User, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Car, Calendar, Fuel, MapPin, User, FileText, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchVehicleDetails as fetchRcDetails, VehicleApiResponse } from "@/services/vehicleApi";
 
@@ -48,22 +49,40 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchDetails = async (forceRefresh = false) => {
+    setError(null);
+    setLoading(true);
+    console.log(`🚙 [VehicleDetailsModal] Fetching details for: ${vehicleNumber}, forceRefresh: ${forceRefresh}`);
+    
+    try {
+      const api = await fetchRcDetails(vehicleNumber, forceRefresh);
+      console.log('🚙 [VehicleDetailsModal] API response:', api);
+      
+      if (api.success) {
+        const mappedDetails = mapApiToDetails(api, vehicleNumber);
+        console.log('🚙 [VehicleDetailsModal] Mapped details:', mappedDetails);
+        setVehicleDetails(mappedDetails);
+        setError(null);
+      } else {
+        console.log('🚙 [VehicleDetailsModal] API failed:', api.error);
+        setVehicleDetails(null);
+        setError(api.error || 'Failed to fetch vehicle details');
+      }
+    } catch (err) {
+      console.error('🚙 [VehicleDetailsModal] Network error:', err);
+      setError('Network error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchDetails(true); // forceRefresh = true
+  };
+
   useEffect(() => {
     if (open && vehicleNumber) {
-      setError(null);
-      setLoading(true);
-      (async () => {
-        const api = await fetchRcDetails(vehicleNumber);
-        if (api.success) {
-          setVehicleDetails(mapApiToDetails(api, vehicleNumber));
-          setError(null);
-        } else {
-          setVehicleDetails(null);
-          setError(api.error || 'Failed to fetch vehicle details');
-          console.error('Vehicle details error:', api.error);
-        }
-        setLoading(false);
-      })();
+      fetchDetails(false); // Normal fetch on open
     }
   }, [open, vehicleNumber]);
 
@@ -81,9 +100,22 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5 text-primary" />
-            Vehicle Details - {vehicleNumber}
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Car className="h-5 w-5 text-primary" />
+              Vehicle Details - {vehicleNumber}
+            </div>
+            {vehicleDetails && !loading && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -166,9 +198,16 @@ const VehicleDetailsModal = ({ open, setOpen, vehicleNumber }: VehicleDetailsMod
               </div>
             </div>
           </div>
+        ) : error ? (
+          <div className="text-center py-8 space-y-4">
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => fetchDetails(false)} variant="outline">
+              Try Again
+            </Button>
+          </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">{error || 'Failed to load vehicle details'}</p>
+            <p className="text-muted-foreground">No vehicle details available</p>
           </div>
         )}
       </DialogContent>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Car, Loader2, AlertCircle } from "lucide-react";
+import { Car, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { fetchVehicleDetails, VehicleApiResponse } from "@/services/vehicleApi";
@@ -57,6 +57,26 @@ const handleRetry = async () => {
   setError(null);
   await handleFetchDetails();
 };
+
+const handleRefresh = async () => {
+  setIsLoading(true);
+  setError(null);
+  
+  try {
+    console.log('🚗 [VehicleDetailsPopover] Force refreshing details for:', vehicleNumber);
+    const details = await fetchVehicleDetails(vehicleNumber, true); // forceRefresh = true
+    setVehicleDetails(details);
+    
+    if (!details.success) {
+      setError(details.error || 'Failed to fetch vehicle details');
+    }
+  } catch (err) {
+    console.error('🚗 [VehicleDetailsPopover] Refresh error:', err);
+    setError('Network error occurred');
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -70,9 +90,22 @@ const handleRetry = async () => {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end" side="bottom">
         <div className="p-4">
-          <div className="flex items-center space-x-2 mb-3">
-            <Car className="h-5 w-5 text-primary" strokeWidth={1.5} />
-            <h3 className="font-semibold text-foreground">Vehicle Details</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Car className="h-5 w-5 text-primary" strokeWidth={1.5} />
+              <h3 className="font-semibold text-foreground">Vehicle Details</h3>
+            </div>
+            {vehicleDetails && vehicleDetails.success && !isLoading && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           
           {isLoading && (
@@ -104,11 +137,18 @@ const handleRetry = async () => {
             return vehicleDetails && vehicleDetails.success && !isLoading;
           })() && (
             <div className="space-y-4">
-              {vehicleDetails.cached && (
-                <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                  ✓ Cached data (verified within 24h)
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                {vehicleDetails.cached && (
+                  <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                    ✓ Cached data (verified within 24h)
+                  </div>
+                )}
+                {!vehicleDetails.cached && (
+                  <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                    ✓ Fresh data from API
+                  </div>
+                )}
+              </div>
               
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">

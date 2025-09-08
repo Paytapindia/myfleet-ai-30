@@ -251,7 +251,7 @@ async function handleRCVerification(supabase: any, userId: string, vehicleNumber
     }
 
     const payload = {
-      type: 'rc',
+      service: 'rc',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -421,7 +421,7 @@ async function handleFastagVerification(supabase: any, userId: string, vehicleNu
     }
 
     const payload = {
-      type: 'fastag',
+      service: 'fastag',
       vehicleId: vehicleNumber,
     };
     console.log('Forwarding to Lambda:', payload);
@@ -775,7 +775,7 @@ async function handleChallansVerification(supabase: any, userId: string, vehicle
     }
 
     const payload = {
-      type: 'challans',
+      service: 'challans',
       vehicleId: vehicleNumber,
       chassis,
       engine_no,

@@ -158,7 +158,13 @@ function lambdaSucceeded(res: { ok: boolean; parsed: any }) {
   if (typeof d === 'object') {
     if (d.success === true) return true;
     if (typeof d.status === 'string' && d.status.toLowerCase() === 'success') return true;
-    if (res.ok && (d.data || d.result || d.payload)) return true;
+    // Accept common APIclub shapes as success too
+    if (res.ok && (d.data || d.result || d.payload || d.response)) return true;
+    // Heuristic: nested response object contains FASTag fields
+    const r = (d as any).response;
+    if (r && typeof r === 'object') {
+      if ('tag_status' in r || 'balance' in r || 'tagId' in r || 'tag_id' in r) return true;
+    }
   }
   return false;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   CreditCard, 
   Link as LinkIcon, 
@@ -28,6 +28,7 @@ import DriverModal from "./DriverModal";
 import { ServiceModal } from "./ServiceModal";
 import { ChallanModal } from "./ChallanModal";
 import { useDrivers } from "@/contexts/DriverContext";
+import { verifyFastag } from "@/api/fastagApi";
 
 interface VehicleCardProps {
   vehicle: {
@@ -60,6 +61,28 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showChallanModal, setShowChallanModal] = useState(false);
   const [gpsActive, setGpsActive] = useState(vehicle.gpsLinked);
+  const [fastagStatus, setFastagStatus] = useState<string>('Loading...');
+
+  // Fetch actual FASTag status
+  useEffect(() => {
+    const fetchFastagStatus = async () => {
+      try {
+        const result = await verifyFastag(vehicle.number);
+        if (result.success && result.data) {
+          setFastagStatus(result.data.status || (result.data.linked ? 'Active' : 'Not Linked'));
+        } else if (result.data) {
+          // Even if success is false, we might have cached data
+          setFastagStatus(result.data.status || (result.data.linked ? 'Active' : 'Not Linked'));
+        } else {
+          setFastagStatus(vehicle.fastTagLinked ? 'Linked' : 'Not Linked');
+        }
+      } catch (error) {
+        setFastagStatus(vehicle.fastTagLinked ? 'Linked' : 'Not Linked');
+      }
+    };
+    
+    fetchFastagStatus();
+  }, [vehicle.number, vehicle.fastTagLinked]);
 
   // Get actual driver name from DriverContext
   const actualDriver = vehicle.driver ? getDriverById(vehicle.driver.id) : null;
@@ -110,8 +133,13 @@ const VehicleCard = ({ vehicle }: VehicleCardProps) => {
           >
             <LinkIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mb-1 sm:mb-2" strokeWidth={1.5} />
             <p className="text-xs text-muted-foreground font-medium mb-1 text-center">FASTag</p>
-            <p className={`text-xs sm:text-sm font-bold ${vehicle.fastTagLinked ? 'text-green-600' : 'text-red-600'} text-center`}>
-              {vehicle.fastTagLinked ? 'Linked' : 'Not Linked'}
+            <p className={`text-xs sm:text-sm font-bold text-center ${
+              fastagStatus === 'Active' ? 'text-green-600' : 
+              fastagStatus === 'Black listed' || fastagStatus === 'Blacklisted' ? 'text-red-600' : 
+              fastagStatus === 'Loading...' ? 'text-muted-foreground' : 
+              'text-yellow-600'
+            }`}>
+              {fastagStatus}
             </p>
           </div>
 

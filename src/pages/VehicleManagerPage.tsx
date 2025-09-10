@@ -3,6 +3,7 @@ import AddVehicleModal from "@/components/AddVehicleModal";
 import VehicleListTable from "@/components/VehicleListTable";
 import { useVehicles } from "@/contexts/VehicleContext";
 import { Plus } from "lucide-react";
+import { ApiTestPanel } from "@/components/ApiTestPanel";
 
 const VehicleManagerPage = () => {
   const { vehicles, isLoading } = useVehicles();
@@ -112,6 +113,11 @@ const VehicleManagerPage = () => {
               </div>
             </div>
           )}
+
+          {/* API Test Panel for Development */}
+          <div className="mt-6 sm:mt-8 px-3 sm:px-0">
+            <ApiTestPanel />
+          </div>
         </div>
       </main>
     </div>

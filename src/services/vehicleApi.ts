@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { directApi } from "@/services/directApi";
 
 // Vehicle API service for fetching real RC verification data
 export interface VehicleApiResponse {
@@ -89,25 +90,16 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
       }
     }
 
-    // Step 2: Fetch fresh data from edge function
-    console.log(`🚗 [fetchVehicleDetails] Calling edge function (attempt ${retryCount + 1})`);
+    // Step 2: Fetch fresh data from API Gateway
+    console.log(`🚗 [fetchVehicleDetails] Calling API Gateway (attempt ${retryCount + 1})`);
 
-    const { data, error } = await supabase.functions.invoke('vehicle-info', {
-      body: {
-        type: 'rc',
-        vehicleId: vehicleNumber,
-        forceRefresh
-      },
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`
-      }
-    });
+    const data = await directApi.verifyRC(vehicleNumber, forceRefresh);
 
-    if (error) {
-      console.error('🚗 [fetchVehicleDetails] Edge function error:', error);
+    if (!data.success) {
+      console.error('🚗 [fetchVehicleDetails] API Gateway error:', data.error);
       
       // Retry on timeout or network errors
-      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
+      if ((data.error?.includes('timeout') || data.error?.includes('network') || data.error?.includes('fetch')) && retryCount < maxRetries) {
         console.log(`🚗 [fetchVehicleDetails] Retrying... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         return fetchVehicleDetails(vehicleNumber, forceRefresh, retryCount + 1);
@@ -117,44 +109,31 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
         number: vehicleNumber,
         model: '',
         success: false,
-        error: error.message || 'Failed to fetch vehicle details - This may take up to 10 seconds'
+        error: data.error || 'Failed to fetch vehicle details - This may take up to 10 seconds'
       };
     }
 
-    console.log('🚗 [fetchVehicleDetails] Edge function response:', data);
+    console.log('🚗 [fetchVehicleDetails] API Gateway response:', data);
 
-    if (!data.success) {
-      return {
-        number: vehicleNumber,
-        model: '',
-        success: false,
-        error: data.error || 'Verification failed'
-      };
-    }
-
-    // Handle both flat and nested response structures
-    // Check for nested structure like data.response.*
-    const apiVehicleData = data.data?.response || data.data || data;
+    // Extract vehicle data from API response
+    const apiVehicleData = data.data;
     console.log('🚗 [fetchVehicleDetails] Processed vehicle data:', apiVehicleData);
     
     // Step 3: Update the vehicles table with fresh data
     console.log('🚗 [fetchVehicleDetails] Updating vehicles table with fresh data...');
     
     const updateData = {
-      model: apiVehicleData.model || apiVehicleData.brand_model || '',
-      make: apiVehicleData.make || apiVehicleData.brand_name,
-      brand_name: apiVehicleData.brand_name || apiVehicleData.make,
-      brand_model: apiVehicleData.brand_model || apiVehicleData.model,
-      year: apiVehicleData.year ? parseInt(apiVehicleData.year) : null,
-      fuel_type: apiVehicleData.fuelType || apiVehicleData.fuel_type,
-      registration_date: apiVehicleData.registrationDate || apiVehicleData.registration_date,
-      owner_name: apiVehicleData.ownerName || apiVehicleData.owner_name,
-      chassis_number: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
-      engine_number: apiVehicleData.engineNumber || apiVehicleData.engine_number,
-      registration_authority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
-      fit_up_to: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
-      pollution_expiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
-      insurance_expiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
+      model: apiVehicleData.model || '',
+      make: apiVehicleData.make,
+      brand_name: apiVehicleData.make,
+      brand_model: apiVehicleData.model,
+      year: apiVehicleData.year || null,
+      fuel_type: apiVehicleData.fuelType,
+      registration_date: apiVehicleData.registrationDate,
+      owner_name: apiVehicleData.ownerName,
+      chassis_number: apiVehicleData.chassisNumber,
+      engine_number: apiVehicleData.engineNumber,
+      registration_authority: apiVehicleData.registrationAuthority,
       rc_verified_at: new Date().toISOString(),
       last_rc_refresh: new Date().toISOString(),
       rc_verification_status: 'verified'
@@ -177,18 +156,18 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
       // Fallback: return API data if DB update fails
       return {
         number: apiVehicleData.number || vehicleNumber,
-        model: apiVehicleData.model || apiVehicleData.brand_model || '',
-        make: apiVehicleData.make || apiVehicleData.brand_name,
-        year: apiVehicleData.year,
-        fuelType: apiVehicleData.fuelType || apiVehicleData.fuel_type,
-        registrationDate: apiVehicleData.registrationDate || apiVehicleData.registration_date,
-        ownerName: apiVehicleData.ownerName || apiVehicleData.owner_name,
-        chassisNumber: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
-        engineNumber: apiVehicleData.engineNumber || apiVehicleData.engine_number,
-        registrationAuthority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
-        fitnessExpiry: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
-        puccExpiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
-        insuranceExpiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
+        model: apiVehicleData.model || '',
+        make: apiVehicleData.make,
+        year: apiVehicleData.year?.toString(),
+        fuelType: apiVehicleData.fuelType,
+        registrationDate: apiVehicleData.registrationDate,
+        ownerName: apiVehicleData.ownerName,
+        chassisNumber: apiVehicleData.chassisNumber,
+        engineNumber: apiVehicleData.engineNumber,
+        registrationAuthority: apiVehicleData.registrationAuthority,
+        fitnessExpiry: undefined,
+        puccExpiry: undefined,
+        insuranceExpiry: undefined,
         success: true,
         cached: false
       };
@@ -212,18 +191,18 @@ export const fetchVehicleDetails = async (vehicleNumber: string, forceRefresh = 
       // Fallback: return API data if query fails
       return {
         number: apiVehicleData.number || vehicleNumber,
-        model: apiVehicleData.model || apiVehicleData.brand_model || '',
-        make: apiVehicleData.make || apiVehicleData.brand_name,
-        year: apiVehicleData.year,
-        fuelType: apiVehicleData.fuelType || apiVehicleData.fuel_type,
-        registrationDate: apiVehicleData.registrationDate || apiVehicleData.registration_date,
-        ownerName: apiVehicleData.ownerName || apiVehicleData.owner_name,
-        chassisNumber: apiVehicleData.chassisNumber || apiVehicleData.chassis_number,
-        engineNumber: apiVehicleData.engineNumber || apiVehicleData.engine_number,
-        registrationAuthority: apiVehicleData.registrationAuthority || apiVehicleData.registration_authority,
-        fitnessExpiry: apiVehicleData.fitnessExpiry || apiVehicleData.fit_up_to,
-        puccExpiry: apiVehicleData.puccExpiry || apiVehicleData.pollution_expiry,
-        insuranceExpiry: apiVehicleData.insuranceExpiry || apiVehicleData.insurance_expiry,
+        model: apiVehicleData.model || '',
+        make: apiVehicleData.make,
+        year: apiVehicleData.year?.toString(),
+        fuelType: apiVehicleData.fuelType,
+        registrationDate: apiVehicleData.registrationDate,
+        ownerName: apiVehicleData.ownerName,
+        chassisNumber: apiVehicleData.chassisNumber,
+        engineNumber: apiVehicleData.engineNumber,
+        registrationAuthority: apiVehicleData.registrationAuthority,
+        fitnessExpiry: undefined,
+        puccExpiry: undefined,
+        insuranceExpiry: undefined,
         success: true,
         cached: false
       };

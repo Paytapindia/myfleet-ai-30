@@ -80,18 +80,18 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         return;
       }
       
-      const { data, error } = await supabase.functions.invoke('vehicle-info', {
-        body: {
-          type: 'challan',
-          vehicleId: vehicleNum,
-          chassis: vehicle.chassis_number,
-          engine_no: vehicle.engine_number,
-          forceRefresh
-        },
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      // Call direct API for challan verification
+      const { directApi } = await import('@/services/directApi');
+      const apiResult = await directApi.verifyChallan(
+        vehicleNum,
+        vehicle.chassis_number,
+        vehicle.engine_number,
+        forceRefresh
+      );
+
+      // Transform response to match expected format
+      const data = apiResult;
+      const error = apiResult.success ? null : { message: apiResult.error };
 
       if (error) {
         console.error('Supabase function error:', error);
@@ -116,9 +116,9 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         return;
       }
 
-      if (data?.success && data?.data) {
+      if (data?.success && (data?.data || data?.response)) {
         // Handle both flat and nested response structures
-        const challanData = data.data || data;
+        const challanData = data.data || data.response || data;
         console.log('Challan Data:', challanData); // Debug log
         
         setIsCached(data.cached || false);
@@ -126,14 +126,19 @@ export const ChallanModal: React.FC<ChallanModalProps> = ({
         // Parse challans from various response formats (normalize structure)
         let challansArray: any[] = [];
         
-        if (Array.isArray(challanData?.response?.challans)) {
-          challansArray = challanData.response.challans;
-        } else if (Array.isArray(challanData?.challans)) {
-          challansArray = challanData.challans;
-        } else if (Array.isArray(challanData?.data)) {
-          challansArray = challanData.data;
-        } else if (Array.isArray(challanData)) {
-          challansArray = challanData as any[];
+        // Handle different response structures from direct API
+        if (challanData && typeof challanData === 'object') {
+          if (Array.isArray((challanData as any)?.challans)) {
+            challansArray = (challanData as any).challans;
+          } else if ((challanData as any)?.response && Array.isArray((challanData as any).response.challans)) {
+            challansArray = (challanData as any).response.challans;
+          } else if (Array.isArray(challanData)) {
+            challansArray = challanData as any[];
+          } else if ((data as any).response && Array.isArray((data as any).response.challans)) {
+            challansArray = (data as any).response.challans;
+          } else if ((data as any).response && Array.isArray((data as any).response)) {
+            challansArray = (data as any).response;
+          }
         }
         
         console.log('Extracted challans array:', challansArray);

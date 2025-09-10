@@ -122,24 +122,17 @@ export const verifyFastag = async (vehicleNumber: string, forceRefresh = false, 
       }
     }
     
-    // Step 2: Fetch fresh data from edge function
-    console.log(`🏷️ [FASTag] Calling edge function (attempt ${retryCount + 1})`);
+    // Step 2: Fetch fresh data from direct API
+    console.log(`🏷️ [FASTag] Calling direct API (attempt ${retryCount + 1})`);
     
-    const { data, error } = await supabase.functions.invoke('vehicle-info', {
-      body: {
-        type: 'fastag',
-        vehicleId: vehicleNumber
-      },
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`
-      }
-    });
+    const { directApi } = await import('@/services/directApi');
+    const apiResult = await directApi.verifyFastag(vehicleNumber, forceRefresh);
 
-    if (error) {
-      console.error('🏷️ [FASTag] Edge function error:', error);
+    if (!apiResult.success) {
+      console.error('🏷️ [FASTag] Direct API error:', apiResult.error);
       
       // Retry on timeout or network errors
-      if ((error.message?.includes('timeout') || error.message?.includes('network') || error.message?.includes('fetch')) && retryCount < maxRetries) {
+      if ((apiResult.error?.includes('timeout') || apiResult.error?.includes('network') || apiResult.error?.includes('fetch')) && retryCount < maxRetries) {
         console.log(`🏷️ [FASTag] Retrying... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         return verifyFastag(vehicleNumber, forceRefresh, retryCount + 1);
@@ -148,17 +141,16 @@ export const verifyFastag = async (vehicleNumber: string, forceRefresh = false, 
       return {
         success: false,
         error: 'Failed to verify FASTag - This may take up to 30 seconds',
-        details: error.message
+        details: apiResult.error
       };
     }
 
-    if (!data || !data.success) {
-      console.error('🏷️ [FASTag] API returned error:', data);
-      return {
-        success: false,
-        error: data?.error || 'FASTag verification failed'
-      };
-    }
+    // Transform API response to match expected format
+    const data = {
+      success: apiResult.success,
+      cached: apiResult.cached,
+      data: apiResult.data
+    };
 
     // Step 3: Query database again to get the freshly stored data
     console.log(`🏷️ [FASTag] Querying database for updated data...`);

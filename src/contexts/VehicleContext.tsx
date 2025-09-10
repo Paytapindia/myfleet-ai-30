@@ -144,17 +144,16 @@ export const VehicleProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw vehicleError;
       }
 
-      // Trigger RC verification to fetch and cache vehicle details
+      // Trigger RC verification using direct API
       try {
-        const { data: rcData, error: rcError } = await supabase.functions.invoke('vehicle-info', {
-          body: { type: 'rc', vehicleId: vehicleData.number }
-        });
+        const { directApi } = await import('@/services/directApi');
+        const rcResult = await directApi.verifyRC(vehicleData.number);
 
-        if (rcError) {
-          console.error('RC verification failed:', rcError);
+        if (!rcResult.success) {
+          console.error('RC verification failed:', rcResult.error);
           // Don't throw error here - vehicle was already added successfully
-        } else if (rcData?.success) {
-          console.log('RC verification completed:', rcData.cached ? 'from cache' : 'fresh API call');
+        } else {
+          console.log('RC verification completed:', rcResult.cached ? 'from cache' : 'fresh API call');
         }
       } catch (rcError) {
         console.error('RC verification error:', rcError);

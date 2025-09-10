@@ -59,7 +59,7 @@ class DirectApiClient {
   constructor() {
     this.baseUrl = APP_CONFIG.apiBaseUrl;
     this.timeout = APP_CONFIG.timeoutMs;
-    this.proxyToken = process.env.VITE_API_PROXY_TOKEN || 'your-proxy-token'; // Configure as needed
+    this.proxyToken = import.meta.env.VITE_API_PROXY_TOKEN;
   }
 
   private async makeRequest<T>(
@@ -88,7 +88,7 @@ class DirectApiClient {
         headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
       }
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -149,26 +149,20 @@ class DirectApiClient {
   async verifyRC(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<VehicleDetails>> {
     const payload = {
       service: 'rc',
-      type: 'rc',
-      vehicleId: vehicleNumber,
-      vehicleNumber: vehicleNumber,
-      forceRefresh
+      vehicleId: vehicleNumber
     };
 
-    return this.makeRequest<VehicleDetails>('/vehicle-info', payload);
+    return this.makeRequest<VehicleDetails>('', payload);
   }
 
   // FASTag Verification  
   async verifyFastag(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<FastagDetails>> {
     const payload = {
       service: 'fastag',
-      type: 'fastag',
-      vehicleId: vehicleNumber,
-      vehicleNumber: vehicleNumber,
-      forceRefresh
+      vehicleId: vehicleNumber
     };
 
-    return this.makeRequest<FastagDetails>('/vehicle-info', payload);
+    return this.makeRequest<FastagDetails>('', payload);
   }
 
   // Challans Verification
@@ -180,15 +174,12 @@ class DirectApiClient {
   ): Promise<ApiResponse<ChallanDetails>> {
     const payload = {
       service: 'challans',
-      type: 'challans',
       vehicleId: vehicleNumber,
-      vehicleNumber: vehicleNumber,
       chassis: chassis,
-      engine_no: engineNumber,
-      forceRefresh
+      engine_no: engineNumber
     };
 
-    return this.makeRequest<ChallanDetails>('/vehicle-info', payload);
+    return this.makeRequest<ChallanDetails>('', payload);
   }
 
   // Vehicle CRUD Operations
@@ -206,7 +197,7 @@ class DirectApiClient {
       }
     };
 
-    return this.makeRequest<{ vehicleId: string }>('/vehicle-crud', payload);
+    return this.makeRequest<{ vehicleId: string }>('', payload);
   }
 
   async updateVehicle(
@@ -219,7 +210,7 @@ class DirectApiClient {
       updates
     };
 
-    return this.makeRequest<void>('/vehicle-crud', payload);
+    return this.makeRequest<void>('', payload);
   }
 
   async deleteVehicle(vehicleId: string): Promise<ApiResponse<void>> {
@@ -228,7 +219,7 @@ class DirectApiClient {
       vehicleId
     };
 
-    return this.makeRequest<void>('/vehicle-crud', payload);
+    return this.makeRequest<void>('', payload);
   }
 
   async assignDriver(vehicleId: string, driverId: string, userId: string): Promise<ApiResponse<void>> {
@@ -239,7 +230,7 @@ class DirectApiClient {
       userId
     };
 
-    return this.makeRequest<void>('/vehicle-crud', payload);
+    return this.makeRequest<void>('', payload);
   }
 
   async unassignDriver(vehicleId: string, driverId: string): Promise<ApiResponse<void>> {
@@ -249,13 +240,13 @@ class DirectApiClient {
       driverId
     };
 
-    return this.makeRequest<void>('/vehicle-crud', payload);
+    return this.makeRequest<void>('', payload);
   }
 
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
     const payload = { action: 'health' };
-    return this.makeRequest<{ status: string }>('/health', payload);
+    return this.makeRequest<{ status: string }>('', payload);
   }
 }
 

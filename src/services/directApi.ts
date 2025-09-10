@@ -2,13 +2,13 @@ import { APP_CONFIG, AUTH_TOKEN } from "@/api/appConfig";
 
 export interface ApiResponse<T = any> {
   success: boolean;
+  status?: string;
   data?: T;
   error?: string;
   cached?: boolean;
   verifiedAt?: string;
   details?: string;
   code?: number;
-  status?: string;
   message?: string;
   response?: any;
 }
@@ -149,7 +149,8 @@ class DirectApiClient {
   async verifyRC(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<VehicleDetails>> {
     const payload = {
       service: 'rc',
-      vehicleId: vehicleNumber
+      vehicleId: vehicleNumber,
+      ...(forceRefresh && { forceRefresh })
     };
 
     return this.makeRequest<VehicleDetails>('', payload);
@@ -159,7 +160,8 @@ class DirectApiClient {
   async verifyFastag(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<FastagDetails>> {
     const payload = {
       service: 'fastag',
-      vehicleId: vehicleNumber
+      vehicleId: vehicleNumber,
+      ...(forceRefresh && { forceRefresh })
     };
 
     return this.makeRequest<FastagDetails>('', payload);
@@ -176,7 +178,8 @@ class DirectApiClient {
       service: 'challans',
       vehicleId: vehicleNumber,
       chassis: chassis,
-      engine_no: engineNumber
+      engine_no: engineNumber,
+      ...(forceRefresh && { forceRefresh })
     };
 
     return this.makeRequest<ChallanDetails>('', payload);

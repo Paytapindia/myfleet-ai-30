@@ -1,4 +1,5 @@
 import { APP_CONFIG, AUTH_TOKEN } from "@/api/appConfig";
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -63,78 +64,49 @@ class DirectApiClient {
   }
 
   private async makeRequest<T>(
-    endpoint: string,
+    service: 'rc' | 'fastag' | 'challans' | 'health' | 'vehicle',
     payload: Record<string, any>,
     retryCount = 0
   ): Promise<ApiResponse<T>> {
     const maxRetries = 1;
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+      console.log(`📡 Making request via edge function for ${service}:`, payload);
+      
+      const requestPayload = {
+        service,
+        ...payload
       };
 
-      // Add proxy token if configured
-      if (this.proxyToken) {
-        headers['x-proxy-token'] = this.proxyToken;
-      }
-
-      // Add auth token if available
-      if (AUTH_TOKEN) {
-        headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
-      }
-
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+      const { data, error } = await supabase.functions.invoke('gateway-proxy', {
+        body: requestPayload
       });
 
-      clearTimeout(timeoutId);
-
-      const contentType = response.headers.get('content-type') || '';
-      let responseData: any = null;
-
-      if (contentType.includes('application/json')) {
-        responseData = await response.json();
-      } else {
-        const textData = await response.text();
-        // Try to parse as JSON if it looks like JSON
-        if (textData.trim().startsWith('{')) {
-          try {
-            responseData = JSON.parse(textData);
-          } catch {
-            responseData = { error: textData };
-          }
-        } else {
-          responseData = { error: textData };
-        }
+      if (error) {
+        console.error(`❌ Edge function error:`, error);
+        throw new Error(`Edge function error: ${error.message}`);
       }
 
-      if (!response.ok) {
-        throw new Error(responseData?.message || responseData?.error || `HTTP ${response.status}`);
+      if (!data || !data.success) {
+        console.error(`❌ API Error:`, data?.error);
+        throw new Error(data?.error || 'API request failed');
       }
 
-      return responseData;
+      console.log(`✅ API Success:`, data);
+      return data;
+
     } catch (error: any) {
-      console.error(`Direct API call failed (attempt ${retryCount + 1}):`, error);
-      
-      // Retry on network/timeout errors
-      if (
-        (error.name === 'AbortError' || 
-         error.message?.includes('timeout') || 
-         error.message?.includes('network') || 
-         error.message?.includes('fetch')) && 
-        retryCount < maxRetries
-      ) {
-        console.log(`Retrying API call... (${retryCount + 1}/${maxRetries})`);
+      console.error(`❌ Request failed:`, error);
+
+      // Retry logic for network errors
+      if (retryCount < maxRetries && (
+        error.message?.includes('fetch') ||
+        error.message?.includes('network') ||
+        error.message?.includes('timeout')
+      )) {
+        console.log(`🔄 Retrying... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        return this.makeRequest<T>(endpoint, payload, retryCount + 1);
+        return this.makeRequest<T>(service, payload, retryCount + 1);
       }
 
       return {
@@ -147,24 +119,18 @@ class DirectApiClient {
 
   // RC Verification
   async verifyRC(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<VehicleDetails>> {
-    const payload = {
-      service: 'rc',
-      vehicleId: vehicleNumber,
-      ...(forceRefresh && { forceRefresh })
-    };
-
-    return this.makeRequest<VehicleDetails>('', payload);
+    return this.makeRequest<VehicleDetails>('rc', {
+      vehicleNumber,
+      forceRefresh
+    });
   }
 
   // FASTag Verification  
   async verifyFastag(vehicleNumber: string, forceRefresh = false): Promise<ApiResponse<FastagDetails>> {
-    const payload = {
-      service: 'fastag',
-      vehicleId: vehicleNumber,
-      ...(forceRefresh && { forceRefresh })
-    };
-
-    return this.makeRequest<FastagDetails>('', payload);
+    return this.makeRequest<FastagDetails>('fastag', {
+      vehicleNumber,
+      forceRefresh
+    });
   }
 
   // Challans Verification
@@ -174,15 +140,12 @@ class DirectApiClient {
     engineNumber: string, 
     forceRefresh = false
   ): Promise<ApiResponse<ChallanDetails>> {
-    const payload = {
-      service: 'challans',
-      vehicleId: vehicleNumber,
-      chassis: chassis,
-      engine_no: engineNumber,
-      ...(forceRefresh && { forceRefresh })
-    };
-
-    return this.makeRequest<ChallanDetails>('', payload);
+    return this.makeRequest<ChallanDetails>('challans', {
+      vehicleNumber,
+      chassis,
+      engineNumber,
+      forceRefresh
+    });
   }
 
   // Vehicle CRUD Operations
@@ -191,65 +154,54 @@ class DirectApiClient {
     userId: string;
     model?: string;
   }): Promise<ApiResponse<{ vehicleId: string }>> {
-    const payload = {
+    return this.makeRequest<{ vehicleId: string }>('vehicle', {
       action: 'create',
       vehicleData: {
         number: vehicleData.number,
         user_id: vehicleData.userId,
         model: vehicleData.model || 'Not specified',
       }
-    };
-
-    return this.makeRequest<{ vehicleId: string }>('', payload);
+    });
   }
 
   async updateVehicle(
     vehicleId: string, 
     updates: Record<string, any>
   ): Promise<ApiResponse<void>> {
-    const payload = {
+    return this.makeRequest<void>('vehicle', {
       action: 'update',
       vehicleId,
       updates
-    };
-
-    return this.makeRequest<void>('', payload);
+    });
   }
 
   async deleteVehicle(vehicleId: string): Promise<ApiResponse<void>> {
-    const payload = {
+    return this.makeRequest<void>('vehicle', {
       action: 'delete',
       vehicleId
-    };
-
-    return this.makeRequest<void>('', payload);
+    });
   }
 
   async assignDriver(vehicleId: string, driverId: string, userId: string): Promise<ApiResponse<void>> {
-    const payload = {
+    return this.makeRequest<void>('vehicle', {
       action: 'assign-driver',
       vehicleId,
       driverId,
       userId
-    };
-
-    return this.makeRequest<void>('', payload);
+    });
   }
 
   async unassignDriver(vehicleId: string, driverId: string): Promise<ApiResponse<void>> {
-    const payload = {
+    return this.makeRequest<void>('vehicle', {
       action: 'unassign-driver',
       vehicleId,
       driverId
-    };
-
-    return this.makeRequest<void>('', payload);
+    });
   }
 
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
-    const payload = { action: 'health' };
-    return this.makeRequest<{ status: string }>('', payload);
+    return this.makeRequest<{ status: string }>('health', {});
   }
 }
 

@@ -82,29 +82,45 @@ class DirectApiClient {
         body: requestPayload
       });
 
+      console.log(`🔍 Raw edge function response for ${service}:`, { data, error });
+
       if (error) {
         console.error(`❌ Edge function error:`, error);
         throw new Error(`Edge function error: ${error.message}`);
       }
 
-      if (!data || !data.success) {
-        console.error(`❌ API Error:`, data?.error);
-        throw new Error(data?.error || 'API request failed');
+      if (!data) {
+        console.error(`❌ No data received from gateway proxy`);
+        throw new Error('No data received from gateway proxy');
       }
 
-      console.log(`✅ API Success:`, data);
-      return data;
+      console.log(`📊 Normalized response data for ${service}:`, data);
+
+      // Handle both success and error cases from normalized response
+      if (data.success === false) {
+        console.error(`❌ API Error from ${service}:`, data.error);
+        return {
+          success: false,
+          error: data.error || 'API request failed',
+          details: data.details || `${service} service error`
+        };
+      }
+
+      // Success case
+      console.log(`✅ API Success for ${service}:`, data);
+      return data as ApiResponse<T>;
 
     } catch (error: any) {
-      console.error(`❌ Request failed:`, error);
+      console.error(`❌ Request failed for ${service}:`, error);
 
       // Retry logic for network errors
       if (retryCount < maxRetries && (
         error.message?.includes('fetch') ||
         error.message?.includes('network') ||
-        error.message?.includes('timeout')
+        error.message?.includes('timeout') ||
+        error.message?.includes('Load failed')
       )) {
-        console.log(`🔄 Retrying... (${retryCount + 1}/${maxRetries})`);
+        console.log(`🔄 Retrying ${service}... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         return this.makeRequest<T>(service, payload, retryCount + 1);
       }

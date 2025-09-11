@@ -111,8 +111,30 @@ Deno.serve(async (req) => {
     const responseData = await response.json()
     console.log('AWS Lambda response data:', responseData)
 
-    // Return the response from Lambda
-    return new Response(JSON.stringify(responseData), {
+    // Normalize the response format for frontend consumption
+    let normalizedResponse: any = {}
+
+    if (responseData.code === 200 && responseData.status === 'success') {
+      // Success case - extract data from response.data
+      normalizedResponse = {
+        success: true,
+        data: responseData.response?.data || responseData.response || responseData.data,
+        cached: responseData.response?.cached || false,
+        verifiedAt: responseData.response?.verifiedAt || new Date().toISOString()
+      }
+      console.log('Normalized success response:', normalizedResponse)
+    } else {
+      // Error case
+      normalizedResponse = {
+        success: false,
+        error: responseData.message || responseData.error || 'API request failed',
+        code: responseData.code,
+        details: responseData
+      }
+      console.log('Normalized error response:', normalizedResponse)
+    }
+
+    return new Response(JSON.stringify(normalizedResponse), {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json' 
